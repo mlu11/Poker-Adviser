@@ -15,10 +15,10 @@ from poker_advisor.parser import patterns
 def _parse_amount(s: str) -> float:
     """Parse a money amount string, removing commas.
 
-    Poker Now stores amounts in cents for USD games, so divide by 100.
+    Some Poker Now logs use whole units (not cents), so return as-is.
     """
     raw = float(s.replace(",", ""))
-    return raw / 100.0
+    return raw
 
 
 def _parse_board_cards(text: str) -> List[Card]:

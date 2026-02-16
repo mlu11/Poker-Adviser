@@ -81,14 +81,18 @@ if selected_tab == "批量复盘":
                 update_steps(0)
                 with st.spinner(f"正在分析..."):
                     from poker_advisor.analysis.batch_reviewer import BatchReviewer
+                    from poker_advisor.ai.analyzer import StrategyAnalyzer
                     try:
                         update_steps(1)
-                        reviewer = BatchReviewer(repo)
-                        result = reviewer.review_top_n(
-                            session_id=session_id,
+                        analyzer = StrategyAnalyzer()
+                        reviewer = BatchReviewer(repo, analyzer)
+                        hands_batch = repo.get_all_hands(session_id=session_id)
+                        result = reviewer.review_top_ev_loss(
+                            hands_batch,
                             top_n=int(top_n),
+                            deep_ai=deep,
                             use_cache=use_cache,
-                            deep=deep,
+                            session_id=session_id,
                         )
                         update_steps(2)
                         report = reviewer.format_report(result)
