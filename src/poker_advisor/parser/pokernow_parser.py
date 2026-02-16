@@ -58,8 +58,8 @@ class PokerNowParser:
     """Parse Poker Now Club full log text into HandRecord objects."""
 
     def __init__(self):
-        self._current_small_blind = 0.10
-        self._current_big_blind = 0.20
+        self._current_small_blind = 10
+        self._current_big_blind = 20
 
     def parse_file(self, filepath: str) -> List[HandRecord]:
         """Parse a log file and return list of HandRecord."""

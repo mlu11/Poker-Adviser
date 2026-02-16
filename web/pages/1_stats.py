@@ -166,12 +166,10 @@ sac.divider(label="累计收益走势", icon="graph-up-arrow", color="green")
 
 cumulative = []
 running = 0.0
+calc = StatsCalculator()
 for h in hands:
     hero_won_amt = h.winners.get(h.hero_seat, 0) if h.hero_seat is not None else 0
-    hero_invested = sum(
-        a.amount for a in h.actions
-        if h.hero_seat is not None and a.seat == h.hero_seat
-    )
+    hero_invested = calc._total_invested(h, h.hero_seat) if h.hero_seat is not None else 0
     profit = hero_won_amt - hero_invested
     running += profit
     cumulative.append(running)
