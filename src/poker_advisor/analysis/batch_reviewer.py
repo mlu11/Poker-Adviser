@@ -5,6 +5,8 @@ Uses analysis result caching to avoid repeated API calls.
 
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 from poker_advisor.models.hand import HandRecord
 from poker_advisor.models.stats import PlayerStats, PositionalStats
@@ -35,6 +37,7 @@ class BatchReviewer:
         self.analyzer = analyzer
         self.calc = StatsCalculator()
         self.leak_detector = LeakDetector()
+        self._db_lock = threading.Lock()  # Lock for SQLite writes
 
     def review_top_ev_loss(
         self,
@@ -42,12 +45,13 @@ class BatchReviewer:
         top_n: int = 10,
         deep_ai: bool = True,
         use_cache: bool = True,
-        session_id: str = ""
+        session_id: str = "",
+        progress_callback: Optional[callable] = None
     ) -> BatchReviewResult:
         """
         1. Calculate EV loss per hand (simplified: based on pot size and hero position)
         2. Sort by estimated EV loss descending
-        3. Take top N hands for AI analysis
+        3. Take top N hands for AI analysis (parallel for cache misses)
         4. Use cache when available
         5. Return consolidated report
 
@@ -56,6 +60,8 @@ class BatchReviewer:
             top_n: Number of top EV loss hands to analyze with AI
             deep_ai: Use deep analysis model
             use_cache: Use cached analysis results
+            session_id: Session ID for cache lookup
+            progress_callback: Optional callback function taking (current, total, hand_id)
 
         Returns:
             BatchReviewResult with all analysis data
@@ -86,31 +92,58 @@ class BatchReviewer:
         sorted_hands = sorted(hand_ev_estimates, key=lambda x: -x[1])
         top_hands = sorted_hands[:top_n]
 
-        # Analyze each top hand with caching
+        # Split into cache hits and misses for parallel processing
+        cache_hits = []
+        cache_misses = []
+
         for hand, est_loss in top_hands:
-            # Check cache first
             if use_cache:
                 cached = self.repo.get_cached_analysis(
                     hand.hand_id, session_id, "single_hand"
                 )
                 if cached:
                     ai_analyses[hand.hand_id] = cached["ai_explanation"]
+                    cache_hits.append(hand)
                     cached_hits += 1
                     continue
+            cache_misses.append((hand, est_loss))
 
-            # No cache, run analysis
-            analysis = self.analyzer.review_hand(hand, hands, deep=deep_ai, use_cache=use_cache, repo=self.repo)
-            ai_analyses[hand.hand_id] = analysis
+        # Process cache misses in parallel
+        if cache_misses:
+            def analyze_hand_task(hand: HandRecord, est_loss: float):
+                analysis = self.analyzer.review_hand(hand, hands, deep=deep_ai,
+                                                    use_cache=use_cache, repo=self.repo)
+                # Use lock to ensure thread-safe SQLite writes
+                with self._db_lock:
+                    self.repo.save_analysis_result(
+                        hand_id=hand.hand_id,
+                        session_id=session_id,
+                        analysis_type="single_hand",
+                        ai_explanation=analysis,
+                        ev_loss=est_loss,
+                        error_grade=self._grade_error(est_loss)
+                    )
+                return hand.hand_id, analysis
 
-            # Save to cache
-            self.repo.save_analysis_result(
-                hand_id=hand.hand_id,
-                session_id=session_id,
-                analysis_type="single_hand",
-                ai_explanation=analysis,
-                ev_loss=est_loss,
-                error_grade=self._grade_error(est_loss)
-            )
+            # Use ThreadPoolExecutor with max 3 workers
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                future_to_hand = {
+                    executor.submit(analyze_hand_task, hand, est_loss): hand
+                    for hand, est_loss in cache_misses
+                }
+
+                # Process futures as they complete
+                for i, future in enumerate(as_completed(future_to_hand), 1):
+                    hand = future_to_hand[future]
+                    hand_id, analysis = future.result()
+                    ai_analyses[hand_id] = analysis
+
+                    if progress_callback:
+                        progress_callback(i, len(cache_misses), hand_id)
+
+        # Update progress to 100% if callback exists
+        if progress_callback and len(top_hands) > 0:
+            progress_callback(len(top_hands), len(top_hands), None)
 
         # Generate overall summary
         overall_summary = self._generate_summary(

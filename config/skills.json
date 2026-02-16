@@ -1,0 +1,26 @@
+{
+  "skills": {
+    "hand_review": {
+      "max_tokens": 4096,
+      "few_shot_examples": [
+        {
+          "input_summary": "Hero在BTN位置拿着A♦K♣，翻前面对HJ的raise 3bet到$15，翻牌是Q♥J♦2♣（SPR=4），Hero持续下注$20，对手跟注。转牌是T♠（形成 Broadway draw），Hero下注$45，对手弃牌。",
+          "output": "## 评分：8/10\n\n## 翻前决策\nHero在BTN拿着A♦K♣属于GTO范围的顶级价值牌（BTN VPIP范围28-40%），对HJ的raise进行3bet是标准GTO策略，3bet尺寸$15合理（约3x raise）。\n\n## 翻后各街分析\n**翻牌：Q♥J♦2♣（SPR=4）**\nHero持续下注$20（约60%底池）是GTO标准策略，对于这种干燥/半湿润牌面，CBet频率应在60-70%之间。对手跟注后，Hero需要担心更强的范围（如QQ/JJ/TT）。\n\n**转牌：T♠**\n转牌形成了Broadway draw，Hero下注$45（约70%底池）是合理的价值/诈唬混合策略。对手弃牌符合预期，因为T♠对于许多跟注范围（如AQ/KQ/QJ）都没有帮助。\n\n## 关键转折点\n转牌T♠是关键转折点，Hero正确地使用了下注来保护自己的 equity 和价值。\n\n## 改进建议\n在这种SPR=4的场景中，翻牌CBet尺寸可以稍微大一些（70%底池），以给对手更大的弃牌压力。"
+        }
+      ]
+    },
+    "strategy_quick": {
+      "max_tokens": 1024,
+      "few_shot_examples": []
+    },
+    "strategy_deep": {
+      "max_tokens": 4096,
+      "few_shot_examples": [
+        {
+          "input_summary": "玩家整体VPIP=38%（超出GTO 22-30%），PFR=28%（超出GTO 17-24%），AF=4.5（超出GTO 2-4）。主要漏洞是VPIP过高、翻后过于激进、3bet率不足。",
+          "output": "## 玩家风格评估\n**松凶型**（Loose-Aggressive）：VPIP=38%（极松），PFR=28%（积极），AF=4.5（过度激进）。\n\n## 核心漏洞分析\n\n### 1. 翻前范围过宽（VPIP=38% vs GTO 22-30%）\n**问题**：玩家入池范围过于宽松，尤其是在早期位置，导致经常用弱牌进入底池，翻后处于劣势。\n**EV损失**：约6.3 BB/100\n**修复步骤**：\n- UTG位置VPIP从42%降至18%\n- HJ位置VPIP从38%降至22%\n- 只在有利位置玩垃圾牌\n\n### 2. 翻后过度激进（AF=4.5 vs GTO 2-4）\n**问题**：翻后侵略性过高，经常在不利位置过度下注和诈唬。\n**EV损失**：约4.2 BB/100\n**修复步骤**：\n- 在不利位置减少连续下注频率\n- 学习底池控制技巧\n- 当牌面没有改善时及时弃牌\n\n### 3. 3bet率不足（3bet=4% vs GTO 6-10%）\n**问题**：对对手raise的3bet频率过低，导致无法有效挤压对手的范围。\n**EV损失**：约2.8 BB/100\n**修复步骤**：\n- 在有利位置（BTN/CO）增加3bet频率到12%\n- 使用更强的3bet范围（AA-KK, AK, QQ-JJ）\n"
+        }
+      ]
+    }
+  }
+}

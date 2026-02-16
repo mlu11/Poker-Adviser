@@ -79,6 +79,7 @@ if selected_tab == "批量复盘":
                         )
 
                 update_steps(0)
+                progress_text = st.empty()
                 with st.spinner(f"正在分析..."):
                     from poker_advisor.analysis.batch_reviewer import BatchReviewer
                     from poker_advisor.ai.analyzer import StrategyAnalyzer
@@ -87,12 +88,17 @@ if selected_tab == "批量复盘":
                         analyzer = StrategyAnalyzer()
                         reviewer = BatchReviewer(repo, analyzer)
                         hands_batch = repo.get_all_hands(session_id=session_id)
+
+                        def on_progress(current: int, total: int, hand_id: int):
+                            progress_text.text(f"正在分析第 {current}/{total} 手牌...")
+
                         result = reviewer.review_top_ev_loss(
                             hands_batch,
                             top_n=int(top_n),
                             deep_ai=deep,
                             use_cache=use_cache,
                             session_id=session_id,
+                            progress_callback=on_progress
                         )
                         update_steps(2)
                         report = reviewer.format_report(result)
@@ -199,9 +205,10 @@ elif selected_tab == "全局策略":
                 from poker_advisor.ai.analyzer import StrategyAnalyzer
                 try:
                     update_steps3(1)
-                    update_steps3(2)
+                    st.info("Step 1: 风格分类（快速分析）...")
                     analyzer = StrategyAnalyzer()
                     result = analyzer.analyze_full(hands, deep=deep3)
+                    st.success("Step 2: 深度分析完成！")
                     update_steps3(3)
                     st.markdown(result)
                 except Exception as e:
