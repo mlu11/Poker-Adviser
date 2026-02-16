@@ -49,6 +49,9 @@ class HandRecord:
     pot_total: float = 0.0
     winners: Dict[int, float] = field(default_factory=dict)
 
+    # Uncalled bet returns: seat -> amount returned
+    uncalled_bets: Dict[int, float] = field(default_factory=dict)
+
     @property
     def board(self) -> List[Card]:
         cards = list(self.flop)

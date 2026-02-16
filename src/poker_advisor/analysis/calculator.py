@@ -265,9 +265,14 @@ class StatsCalculator:
         return (False, False)
 
     def _total_invested(self, hand: HandRecord, seat: int) -> float:
-        """Calculate total amount invested by a player in this hand."""
+        """Calculate total amount invested by a player in this hand.
+
+        Sums all action amounts and subtracts any uncalled bet returns.
+        """
         total = 0.0
         for a in hand.actions:
             if a.seat == seat and a.amount > 0:
                 total += a.amount
-        return total
+        # Subtract uncalled bet returns
+        total -= hand.uncalled_bets.get(seat, 0.0)
+        return max(total, 0.0)

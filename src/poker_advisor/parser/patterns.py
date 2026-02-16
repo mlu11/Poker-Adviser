@@ -42,7 +42,7 @@ HERO_HAND = re.compile(
 # New: "Name @ ID" posts a big blind of 20
 POST_BLIND = re.compile(
     r'"([^"]+)"(?:\s*@\s*seat\s*#?(\d+))?\s+'
-    r'(posts\s+a\s+small\s+blind|posts\s+a\s+big\s+blind|posts\s+a\s+missing\s+small\s+blind|posts\s+a\s+missing\s+big\s+blind|posts\s+a\s+straddle)\s+of\s+\$?([\d,]+\.?\d*)',
+    r'(posts\s+a\s+small\s+blind|posts\s+a\s+big\s+blind|posts\s+a\s+miss(?:ing|ed)\s+small\s+blind|posts\s+a\s+miss(?:ing|ed)\s+big\s+blind|posts\s+a\s+straddle)\s+of\s+\$?([\d,]+\.?\d*)',
     re.IGNORECASE,
 )
 
@@ -136,8 +136,9 @@ CARD_PATTERN = re.compile(r'((?:10|[2-9TJQKA])+)\s*of\s*(Hearts|Diamonds|Clubs|S
 TIMESTAMP = re.compile(r'^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s*--\s*', re.IGNORECASE)
 
 # Dead button / uncalled bet
+# Poker Now format: "Uncalled bet of 2299 returned to "Player @ ID""
 UNCALLED_BET = re.compile(
-    r'[Uu]ncalled\s+(?:portion\s+of\s+)?bet\s+\(?\$?([\d,]+\.?\d*)\)?\s+returned\s+to\s+"([^"]+)"',
+    r'[Uu]ncalled\s+(?:portion\s+of\s+)?bet\s+(?:of\s+)?\(?\$?([\d,]+\.?\d*)\)?\s+returned\s+to\s+"([^"]+)"',
     re.IGNORECASE,
 )
 

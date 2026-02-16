@@ -223,6 +223,12 @@ class PokerNowParser:
         player_stacks_parsed = False
         name_to_seat: Dict[str, int] = {}
 
+        # Track per-player cumulative amount for current street.
+        # In Poker Now, "calls X" and "raises to X" mean the player's TOTAL
+        # for this betting round is X (cumulative), not incremental.
+        # We convert to incremental for accurate profit calculation.
+        player_street_cumulative: Dict[int, float] = {}
+
         for line in lines:
             # Check for dealer in hand start line
             start_match = patterns.HAND_START.search(line)
@@ -289,6 +295,9 @@ class PokerNowParser:
                     street=Street.PREFLOP,
                 )
                 hand.actions.append(action)
+                # Blinds are incremental, but add to cumulative tracking
+                # so subsequent calls/raises compute correct incremental
+                player_street_cumulative[seat] = player_street_cumulative.get(seat, 0.0) + amount
                 continue
 
             # Fold
@@ -313,41 +322,53 @@ class PokerNowParser:
                 ))
                 continue
 
-            # Call
+            # Call — amount is cumulative total for this round
             call_match = patterns.PLAYER_CALL.search(line)
             if call_match:
                 name, seat_s, amount_s = call_match.groups()
                 seat = self._resolve_seat(name, seat_s, name_to_seat)
                 is_allin = bool(patterns.ALL_IN.search(line))
+                cumulative = _parse_amount(amount_s)
+                prior = player_street_cumulative.get(seat, 0.0)
+                incremental = max(cumulative - prior, 0.0)
+                player_street_cumulative[seat] = cumulative
                 hand.actions.append(PlayerAction(
                     player_name=name, seat=seat,
-                    action_type=ActionType.CALL, amount=_parse_amount(amount_s),
+                    action_type=ActionType.CALL, amount=incremental,
                     street=current_street, is_all_in=is_allin,
                 ))
                 continue
 
-            # Raise (check before bet as raise pattern is more specific)
+            # Raise — amount is cumulative total for this round
             raise_match = patterns.PLAYER_RAISE.search(line)
             if raise_match:
                 name, seat_s, amount_s = raise_match.groups()
                 seat = self._resolve_seat(name, seat_s, name_to_seat)
                 is_allin = bool(patterns.ALL_IN.search(line))
+                cumulative = _parse_amount(amount_s)
+                prior = player_street_cumulative.get(seat, 0.0)
+                incremental = max(cumulative - prior, 0.0)
+                player_street_cumulative[seat] = cumulative
                 hand.actions.append(PlayerAction(
                     player_name=name, seat=seat,
-                    action_type=ActionType.RAISE, amount=_parse_amount(amount_s),
+                    action_type=ActionType.RAISE, amount=incremental,
                     street=current_street, is_all_in=is_allin,
                 ))
                 continue
 
-            # Bet
+            # Bet — amount is cumulative total for this round
             bet_match = patterns.PLAYER_BET.search(line)
             if bet_match:
                 name, seat_s, amount_s = bet_match.groups()
                 seat = self._resolve_seat(name, seat_s, name_to_seat)
                 is_allin = bool(patterns.ALL_IN.search(line))
+                cumulative = _parse_amount(amount_s)
+                prior = player_street_cumulative.get(seat, 0.0)
+                incremental = max(cumulative - prior, 0.0)
+                player_street_cumulative[seat] = cumulative
                 hand.actions.append(PlayerAction(
                     player_name=name, seat=seat,
-                    action_type=ActionType.BET, amount=_parse_amount(amount_s),
+                    action_type=ActionType.BET, amount=incremental,
                     street=current_street, is_all_in=is_allin,
                 ))
                 continue
@@ -356,6 +377,7 @@ class PokerNowParser:
             flop_match = patterns.FLOP.search(line)
             if flop_match:
                 current_street = Street.FLOP
+                player_street_cumulative.clear()  # Reset for new street
                 hand.flop = _parse_board_cards(flop_match.group(1))
                 continue
 
@@ -363,6 +385,7 @@ class PokerNowParser:
             turn_match = patterns.TURN.search(line)
             if turn_match:
                 current_street = Street.TURN
+                player_street_cumulative.clear()  # Reset for new street
                 turn_cards = _parse_board_cards(turn_match.group(1))
                 if turn_cards:
                     hand.turn = turn_cards[-1]  # Last card is the turn card
@@ -372,6 +395,7 @@ class PokerNowParser:
             river_match = patterns.RIVER.search(line)
             if river_match:
                 current_street = Street.RIVER
+                player_street_cumulative.clear()  # Reset for new street
                 river_cards = _parse_board_cards(river_match.group(1))
                 if river_cards:
                     hand.river = river_cards[-1]
@@ -420,28 +444,34 @@ class PokerNowParser:
                         hand.shown_cards[seat] = parsed
                 continue
 
-            # Pot collection
+            # Pot collection — accumulate for side pots
             pot_match = patterns.POT_COLLECT.search(line)
             if pot_match:
                 name, seat_s, amount_s = pot_match.groups()
                 seat = self._resolve_seat(name, seat_s, name_to_seat)
                 if seat:
-                    hand.winners[seat] = _parse_amount(amount_s)
-                    hand.pot_total = max(hand.pot_total, _parse_amount(amount_s))
+                    amount = _parse_amount(amount_s)
+                    hand.winners[seat] = hand.winners.get(seat, 0.0) + amount
+                    hand.pot_total += amount
                 continue
 
-            # Hand result (wins/gained)
+            # Hand result (wins/gained) — accumulate for side pots
             result_match = patterns.HAND_RESULT.search(line)
             if result_match:
                 name, seat_s, amount_s = result_match.groups()
                 seat = self._resolve_seat(name, seat_s, name_to_seat)
                 if seat and seat not in hand.winners:
-                    hand.winners[seat] = _parse_amount(amount_s)
+                    hand.winners[seat] = hand.winners.get(seat, 0.0) + _parse_amount(amount_s)
                 continue
 
-            # Uncalled bet
+            # Uncalled bet — track the returned amount
             uncalled_match = patterns.UNCALLED_BET.search(line)
             if uncalled_match:
+                uncalled_amount = _parse_amount(uncalled_match.group(1))
+                uncalled_name = uncalled_match.group(2)
+                uncalled_seat = self._resolve_seat(uncalled_name, None, name_to_seat)
+                if uncalled_seat:
+                    hand.uncalled_bets[uncalled_seat] = hand.uncalled_bets.get(uncalled_seat, 0.0) + uncalled_amount
                 continue
 
         # Post-processing: determine dealer and positions
