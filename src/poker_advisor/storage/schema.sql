@@ -85,8 +85,53 @@ CREATE TABLE IF NOT EXISTS training_results (
     FOREIGN KEY (hand_record_id) REFERENCES hands(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS analysis_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hand_id INTEGER NOT NULL,
+    session_id TEXT,
+    analysis_type TEXT NOT NULL, -- 'full_session' | 'single_hand'
+    ai_explanation TEXT,
+    ev_loss REAL,
+    error_grade TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(hand_id, session_id, analysis_type)
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hand_id INTEGER NOT NULL,
+    session_id TEXT,
+    bookmark_type TEXT NOT NULL DEFAULT 'mistake', -- 'mistake' | 'great_hand' | 'review'
+    notes TEXT,
+    tags TEXT, -- comma-separated
+    error_grade TEXT, -- S/A/B/C
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS review_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hand_id INTEGER NOT NULL,
+    session_id TEXT,
+    decision_point TEXT, -- street or decision
+    note_content TEXT,
+    tags TEXT, -- comma-separated
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS training_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_name TEXT,
+    focus_areas TEXT, -- comma-separated
+    difficulty TEXT,
+    duration_days INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_hands_session ON hands(session_id);
 CREATE INDEX IF NOT EXISTS idx_hands_hand_id ON hands(hand_id);
 CREATE INDEX IF NOT EXISTS idx_actions_hand ON actions(hand_record_id);
 CREATE INDEX IF NOT EXISTS idx_players_hand ON players(hand_record_id);
 CREATE INDEX IF NOT EXISTS idx_training_date ON training_results(session_date);
+CREATE INDEX IF NOT EXISTS idx_analysis_cache ON analysis_results(hand_id, analysis_type);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_hand ON bookmarks(hand_id, session_id);
+CREATE INDEX IF NOT EXISTS idx_review_notes_hand ON review_notes(hand_id, session_id);

@@ -75,6 +75,8 @@ class ClaudeClient:
         for attempt in range(max_retries + 1):
             try:
                 response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+                if not response.ok:
+                    print(f"Response [{response.status_code}]: {response.text[:200]}")
                 response.raise_for_status()
                 result = response.json()
                 return result["choices"][0]["message"]["content"]

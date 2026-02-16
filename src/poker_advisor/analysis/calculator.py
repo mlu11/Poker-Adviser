@@ -148,6 +148,10 @@ class StatsCalculator:
             stats.went_to_showdown += 1
             if hero_seat in hand.winners:
                 stats.won_at_showdown += 1
+        else:
+            # Hand ended before showdown — did hero win without going to showdown?
+            if hero_seat in hand.winners:
+                stats.won_without_showdown += 1
 
     def _is_vpip(self, hero_preflop: List[PlayerAction]) -> bool:
         """Hero voluntarily put money in pot preflop (call, raise, bet — not blind).

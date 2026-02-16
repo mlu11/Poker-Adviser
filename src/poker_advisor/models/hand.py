@@ -14,6 +14,7 @@ class HandRecord:
 
     hand_id: int = 0
     timestamp: str = ""
+    session_id: str = ""
 
     # Table info
     player_count: int = 0

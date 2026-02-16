@@ -13,11 +13,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from theme import inject_theme, PLOTLY_LAYOUT, COLORS
 from navigation import render_sidebar_nav
 
-st.set_page_config(page_title="训练模式", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="训练中心", page_icon="🎯", layout="wide")
 inject_theme()
 render_sidebar_nav("pages/4_training")
 
-st.title("🎯 训练模式")
+st.title("🎯 训练中心")
 
 _api_key = _cfg.DOUBAO_API_KEY if _cfg.AI_PROVIDER == "doubao" else _cfg.DEEPSEEK_API_KEY
 _env_var = "DOUBAO_API_KEY" if _cfg.AI_PROVIDER == "doubao" else "DEEPSEEK_API_KEY"

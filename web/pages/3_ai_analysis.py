@@ -12,11 +12,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from theme import inject_theme
 from navigation import render_sidebar_nav
 
-st.set_page_config(page_title="AI 分析", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="复盘中心", page_icon="📋", layout="wide")
 inject_theme()
 render_sidebar_nav("pages/3_ai_analysis")
 
-st.title("🤖 AI 分析")
+st.title("📋 复盘中心")
 
 _api_key = _cfg.DOUBAO_API_KEY if _cfg.AI_PROVIDER == "doubao" else _cfg.DEEPSEEK_API_KEY
 _env_var = "DOUBAO_API_KEY" if _cfg.AI_PROVIDER == "doubao" else "DEEPSEEK_API_KEY"
@@ -36,12 +36,69 @@ for s in sessions:
 
 # --- Tabs using sac ---
 selected_tab = sac.tabs([
-    sac.TabsItem(label="全局策略分析", icon="graph-up"),
-    sac.TabsItem(label="单手牌复盘", icon="suit-spade"),
+    sac.TabsItem(label="批量复盘", icon="lightning"),
+    sac.TabsItem(label="单局复盘", icon="suit-spade"),
+    sac.TabsItem(label="全局策略", icon="graph-up"),
 ], color="green")
 
-# --- Tab 1: Full analysis ---
-if selected_tab == "全局策略分析":
+# --- Tab 1: Batch Review ---
+if selected_tab == "批量复盘":
+    selected = st.selectbox("选择会话", options=list(session_options.keys()),
+                            key="batch_session")
+    session_id = session_options[selected]
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        top_n = st.number_input("Top N 高 EV 损失手牌", min_value=3, max_value=20, value=5, step=1)
+    with col2:
+        use_cache = st.toggle("使用缓存（如果有）", value=True)
+    with col3:
+        deep = st.toggle("深度分析", value=False)
+
+    if st.button("开始批量复盘", type="primary", key="run_batch"):
+        if session_id is None:
+            st.warning("请选择一个具体的会话。")
+        else:
+            hands = repo.get_all_hands(session_id=session_id)
+            if not hands:
+                st.warning("未找到手牌数据。")
+            else:
+                step_placeholder = st.empty()
+
+                def update_steps(current):
+                    with step_placeholder.container():
+                        sac.steps(
+                            items=[
+                                sac.StepsItem(title="加载数据"),
+                                sac.StepsItem(title="筛选 Top EV 损失"),
+                                sac.StepsItem(title="AI 分析"),
+                                sac.StepsItem(title="生成报告"),
+                            ],
+                            index=current,
+                            color="green",
+                        )
+
+                update_steps(0)
+                with st.spinner(f"正在分析..."):
+                    from poker_advisor.analysis.batch_reviewer import BatchReviewer
+                    try:
+                        update_steps(1)
+                        reviewer = BatchReviewer(repo)
+                        result = reviewer.review_top_n(
+                            session_id=session_id,
+                            top_n=int(top_n),
+                            use_cache=use_cache,
+                            deep=deep,
+                        )
+                        update_steps(2)
+                        report = reviewer.format_report(result)
+                        update_steps(3)
+                        st.markdown(report)
+                    except Exception as e:
+                        st.error(f"分析失败: {e}")
+
+# --- Tab 2: Single review ---
+elif selected_tab == "单局复盘":
     selected = st.selectbox("选择会话", options=list(session_options.keys()),
                             key="analysis_session")
     session_id = session_options[selected]
@@ -93,8 +150,61 @@ if selected_tab == "全局策略分析":
                 except Exception as e:
                     st.error(f"分析失败: {e}")
 
+# --- Tab 3: Global Strategy ---
+elif selected_tab == "全局策略":
+    selected3 = st.selectbox("选择会话", options=list(session_options.keys()),
+                            key="global_session")
+    session_id3 = session_options[selected3]
+
+    # Model selector — segmented control
+    model_choice3 = sac.segmented(
+        items=[
+            sac.SegmentedItem(label="标准分析"),
+            sac.SegmentedItem(label="深度分析"),
+        ],
+        color="green",
+        key="global_model",
+    )
+    deep3 = model_choice3 == "深度分析"
+
+    if st.button("开始分析", type="primary", key="run_global"):
+        hands = repo.get_all_hands(session_id=session_id3)
+        if not hands:
+            st.warning("未找到手牌数据。")
+        else:
+            # Progress steps
+            step_idx = 0
+            step_placeholder3 = st.empty()
+
+            def update_steps3(current):
+                with step_placeholder3.container():
+                    sac.steps(
+                        items=[
+                            sac.StepsItem(title="加载数据", description="读取手牌记录"),
+                            sac.StepsItem(title="计算统计", description="生成指标"),
+                            sac.StepsItem(title="AI 分析", description="策略评估"),
+                            sac.StepsItem(title="完成", description="展示结果"),
+                        ],
+                        index=current,
+                        color="green",
+                    )
+
+            update_steps3(0)
+
+            with st.spinner(f"正在分析 {len(hands)} 手牌..."):
+                from poker_advisor.ai.analyzer import StrategyAnalyzer
+                try:
+                    update_steps3(1)
+                    update_steps3(2)
+                    analyzer = StrategyAnalyzer()
+                    result = analyzer.analyze_full(hands, deep=deep3)
+                    update_steps3(3)
+                    st.markdown(result)
+                except Exception as e:
+                    st.error(f"分析失败: {e}")
+
 # --- Tab 2: Hand review ---
-elif selected_tab == "单手牌复盘":
+elif selected_tab == "单局复盘":
     selected2 = st.selectbox("选择会话", options=list(session_options.keys()),
                              key="review_session")
     session_id2 = session_options[selected2]
@@ -128,13 +238,13 @@ elif selected_tab == "单手牌复盘":
     # Model selector
     model_choice2 = sac.segmented(
         items=[
-            sac.SegmentedItem(label="标准 (Sonnet)"),
-            sac.SegmentedItem(label="深度 (Opus)"),
+            sac.SegmentedItem(label="标准分析"),
+            sac.SegmentedItem(label="深度分析"),
         ],
         color="green",
         key="review_model",
     )
-    deep2 = model_choice2 == "深度 (Opus)"
+    deep2 = model_choice2 == "深度分析"
 
     if st.button("AI 复盘", type="primary", key="run_review"):
         step_placeholder2 = st.empty()

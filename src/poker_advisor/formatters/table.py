@@ -38,6 +38,8 @@ class TableFormatter:
         table.add_row("Fold to C-Bet%", f"{d['Fold to C-Bet%']:.1f}%")
         table.add_row("WTSD%", f"{d['WTSD%']:.1f}%")
         table.add_row("W$SD%", f"{d['W$SD%']:.1f}%")
+        table.add_row("WWSF%", f"{d['WWSF%']:.1f}%")
+        table.add_row("ROI%", f"{d['ROI%']:.1f}%")
 
         self.console.print(table)
 
@@ -89,14 +91,16 @@ class TableFormatter:
         self.console.print(f"\n[bold]Leak Analysis[/bold] — {len(leaks)} issue(s) found\n")
 
         severity_styles = {
-            Severity.MAJOR: "red",
-            Severity.MODERATE: "yellow",
-            Severity.MINOR: "blue",
+            Severity.S: "bright_red",
+            Severity.A: "red",
+            Severity.B: "yellow",
+            Severity.C: "blue",
         }
         severity_labels = {
-            Severity.MAJOR: "MAJOR",
-            Severity.MODERATE: "MODERATE",
-            Severity.MINOR: "MINOR",
+            Severity.S: "CRITICAL",
+            Severity.A: "MAJOR",
+            Severity.B: "MODERATE",
+            Severity.C: "MINOR",
         }
 
         for i, leak in enumerate(leaks, 1):
@@ -104,8 +108,9 @@ class TableFormatter:
             label = severity_labels[leak.severity]
 
             content = Text()
-            content.append(f"Value: {leak.actual_value:.1f}", style="bold")
-            content.append(f"  (baseline: {leak.baseline_low:.1f}-{leak.baseline_high:.1f})\n")
+            content.append(f"Value: {leak.actual_value:.1f}  ", style="bold")
+            content.append(f"EV Loss: [bold]{leak.ev_loss_bb100:.2f}[/bold] BB/100\n")
+            content.append(f"Baseline: {leak.baseline_low:.1f}-{leak.baseline_high:.1f}\n")
             if leak.advice:
                 content.append(f"\n{leak.advice}")
 

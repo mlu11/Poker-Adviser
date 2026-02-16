@@ -62,27 +62,53 @@ class StrategyAnalyzer:
             position_text = "\n".join(lines)
 
         prompt = build_analysis_prompt(stats_text, leaks_text, position_text)
-        model = config.DEEP_ANALYSIS_MODEL if deep else None
-
-        return self.client.ask(
-            prompt=prompt,
-            system=STRATEGY_ANALYST_SYSTEM,
-            model=model,
-        )
+        
+        # For deep analysis, use code model with its own API key and endpoint
+        if deep:
+            from poker_advisor.ai.client import ClaudeClient
+            client = ClaudeClient(
+                api_key=config.DOUBAO_CODE_API_KEY,
+                model=config.DEEP_ANALYSIS_MODEL,
+                endpoint=config.DOUBAO_CODE_API_ENDPOINT
+            )
+            return client.ask(
+                prompt=prompt,
+                system=STRATEGY_ANALYST_SYSTEM,
+                model=config.DEEP_ANALYSIS_MODEL,
+            )
+        else:
+            model = config.DEEP_ANALYSIS_MODEL if deep else None
+            return self.client.ask(
+                prompt=prompt,
+                system=STRATEGY_ANALYST_SYSTEM,
+                model=model,
+            )
 
     def review_hand(self, hand: HandRecord,
                     hands: Optional[List[HandRecord]] = None,
-                    deep: bool = False) -> str:
+                    deep: bool = False,
+                    use_cache: bool = True,
+                    repo=None) -> str:
         """Get AI analysis of a specific hand.
 
         Args:
             hand: The hand to review.
             hands: Optional full hand history for context stats.
             deep: Use deep analysis model.
+            use_cache: Use cached analysis if available
+            repo: HandRepository for caching (required if use_cache=True)
 
         Returns:
             Claude's hand review as markdown text.
         """
+        # Check cache first if repo provided
+        if use_cache and repo and hand.session_id:
+            cached = repo.get_cached_analysis(
+                hand.hand_id, hand.session_id, "single_hand"
+            )
+            if cached:
+                return cached["ai_explanation"]
+
         hand_text = self.formatter.format_hand(hand)
 
         stats_text = ""
@@ -91,10 +117,38 @@ class StrategyAnalyzer:
             stats_text = self.formatter.format_stats_summary(stats)
 
         prompt = build_hand_review_prompt(hand_text, stats_text)
-        model = config.DEEP_ANALYSIS_MODEL if deep else None
+        
+        # For deep analysis, use code model with its own API key and endpoint
+        if deep:
+            from poker_advisor.ai.client import ClaudeClient
+            client = ClaudeClient(
+                api_key=config.DOUBAO_CODE_API_KEY,
+                model=config.DEEP_ANALYSIS_MODEL,
+                endpoint=config.DOUBAO_CODE_API_ENDPOINT
+            )
+            result = client.ask(
+                prompt=prompt,
+                system=STRATEGY_ANALYST_SYSTEM,
+                model=config.DEEP_ANALYSIS_MODEL,
+            )
+        else:
+            model = config.DEEP_ANALYSIS_MODEL if deep else None
+            result = self.client.ask(
+                prompt=prompt,
+                system=STRATEGY_ANALYST_SYSTEM,
+                model=model,
+            )
 
-        return self.client.ask(
-            prompt=prompt,
-            system=STRATEGY_ANALYST_SYSTEM,
-            model=model,
-        )
+        # Save to cache if repo provided
+        if use_cache and repo and hand.session_id:
+            # Rough estimate of EV loss from pot
+            est_ev_loss = hand.pot_total * (0.5 if not hand.hero_won else 0)
+            repo.save_analysis_result(
+                hand_id=hand.hand_id,
+                session_id=hand.session_id,
+                analysis_type="single_hand",
+                ai_explanation=result,
+                ev_loss=est_ev_loss
+            )
+
+        return result

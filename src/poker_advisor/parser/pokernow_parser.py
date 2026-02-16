@@ -13,8 +13,12 @@ from poker_advisor.parser import patterns
 
 
 def _parse_amount(s: str) -> float:
-    """Parse a money amount string, removing commas."""
-    return float(s.replace(",", ""))
+    """Parse a money amount string, removing commas.
+
+    Poker Now stores amounts in cents for USD games, so divide by 100.
+    """
+    raw = float(s.replace(",", ""))
+    return raw / 100.0
 
 
 def _parse_board_cards(text: str) -> List[Card]:
@@ -54,8 +58,8 @@ class PokerNowParser:
     """Parse Poker Now Club full log text into HandRecord objects."""
 
     def __init__(self):
-        self._current_small_blind = 0.50
-        self._current_big_blind = 1.00
+        self._current_small_blind = 0.10
+        self._current_big_blind = 0.20
 
     def parse_file(self, filepath: str) -> List[HandRecord]:
         """Parse a log file and return list of HandRecord."""

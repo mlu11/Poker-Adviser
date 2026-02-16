@@ -1,5 +1,7 @@
 """Leak detector — compare player stats against GTO baselines."""
 
+import json
+from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
@@ -9,9 +11,11 @@ from poker_advisor.models.position import Position
 
 
 class Severity(str, Enum):
-    MINOR = "minor"
-    MODERATE = "moderate"
-    MAJOR = "major"
+    """S/A/B/C four-level severity classification based on EV loss."""
+    S = "S"       # Critical: > 5 BB/100 EV loss
+    A = "A"       # Major: 3-5 BB/100 EV loss
+    B = "B"       # Moderate: 1-3 BB/100 EV loss
+    C = "C"       # Minor: < 1 BB/100 EV loss
 
 
 @dataclass
@@ -25,41 +29,49 @@ class Leak:
     baseline_high: float
     position: Optional[str] = None
     advice: str = ""
+    ev_loss_bb100: float = 0.0  # Estimated EV loss in BB per 100 hands
 
 
-# GTO baseline ranges for 6-max cash games.
-# These are approximate ranges — actual optimal values depend on
-# game type, stakes, and opponent tendencies.
-GTO_BASELINES: Dict[str, tuple] = {
-    "vpip":           (22.0, 30.0),
-    "pfr":            (17.0, 24.0),
-    "three_bet_pct":  (6.0, 10.0),
-    "af":             (2.0, 4.0),
-    "cbet_pct":       (55.0, 75.0),
-    "fold_to_cbet":   (35.0, 55.0),
-    "wtsd":           (25.0, 35.0),
-    "wsd":            (48.0, 56.0),
-}
+# Load baselines from config file
+def _load_baselines() -> tuple[Dict[str, tuple], Dict[str, Dict[str, tuple]]]:
+    """Load GTO baselines from config JSON file."""
+    config_path = Path(__file__).parent.parent.parent / "config" / "baselines.json"
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data["overall"], data["positions"]
+    # Fallback to defaults if config file not found
+    return {
+        "vpip":           (22.0, 30.0),
+        "pfr":            (17.0, 24.0),
+        "three_bet_pct":  (6.0, 10.0),
+        "af":             (2.0, 4.0),
+        "cbet_pct":       (55.0, 75.0),
+        "fold_to_cbet":   (35.0, 55.0),
+        "wtsd":           (25.0, 35.0),
+        "wsd":            (48.0, 56.0),
+    }, {
+        "Early": {
+            "vpip": (14.0, 20.0),
+            "pfr":  (12.0, 18.0),
+        },
+        "Middle": {
+            "vpip": (18.0, 26.0),
+            "pfr":  (15.0, 22.0),
+        },
+        "Late": {
+            "vpip": (28.0, 40.0),
+            "pfr":  (22.0, 32.0),
+        },
+        "Blinds": {
+            "vpip": (20.0, 30.0),
+            "pfr":  (12.0, 20.0),
+        },
+    }
 
-# Position-specific adjustments (multipliers applied to baseline range)
-POSITION_ADJUSTMENTS: Dict[str, Dict[str, tuple]] = {
-    "Early": {
-        "vpip": (14.0, 20.0),
-        "pfr":  (12.0, 18.0),
-    },
-    "Middle": {
-        "vpip": (18.0, 26.0),
-        "pfr":  (15.0, 22.0),
-    },
-    "Late": {
-        "vpip": (28.0, 40.0),
-        "pfr":  (22.0, 32.0),
-    },
-    "Blinds": {
-        "vpip": (20.0, 30.0),
-        "pfr":  (12.0, 20.0),
-    },
-}
+
+# GTO baseline ranges loaded from config
+GTO_BASELINES, POSITION_ADJUSTMENTS = _load_baselines()
 
 # Minimum hands required for a metric to be considered reliable
 MIN_HANDS_OVERALL = 30
@@ -131,6 +143,14 @@ LEAK_DESCRIPTIONS = {
         "摊牌胜率偏低 — 跟注太宽",
         "减少用弱牌去摊牌的频率。如果经常在摊牌时输钱，说明跟注标准过低。"
     ),
+    ("wwsf", "low"): (
+        "未摊牌赢率偏低",
+        "增加翻后进攻频率，更多用下注/加注拿下底池无需摊牌。"
+    ),
+    ("wwsf", "high"): (
+        "未摊牌赢率偏高",
+        "诈唬频率可能过高。适当减少不必要的bluff。"
+    ),
 }
 
 
@@ -168,9 +188,9 @@ class LeakDetector:
             group_leaks = self._check_stats(merged, baselines, position=group_name)
             leaks.extend(group_leaks)
 
-        # Sort by severity (major first)
-        severity_order = {Severity.MAJOR: 0, Severity.MODERATE: 1, Severity.MINOR: 2}
-        leaks.sort(key=lambda l: severity_order[l.severity])
+        # Sort by severity (S first, then A, B, C) and by EV loss
+        severity_order = {Severity.S: 0, Severity.A: 1, Severity.B: 2, Severity.C: 3}
+        leaks.sort(key=lambda l: (severity_order[l.severity], -l.ev_loss_bb100))
         return leaks
 
     def _check_stats(self, stats: PositionalStats,
@@ -188,6 +208,7 @@ class LeakDetector:
             "fold_to_cbet": stats.fold_to_cbet_pct,
             "wtsd": stats.wtsd,
             "wsd": stats.wsd,
+            "wwsf": stats.wwsf,
         }
 
         # Skip metrics that need minimum sample sizes
@@ -197,6 +218,7 @@ class LeakDetector:
             "fold_to_cbet": stats.faced_cbet >= 5,
             "wtsd": stats.saw_flop >= 10,
             "wsd": stats.went_to_showdown >= 5,
+            "wwsf": stats.saw_flop >= 10,
         }
 
         for metric, value in metric_getters.items():
@@ -219,15 +241,27 @@ class LeakDetector:
         if "vpip" in baselines and "pfr" in baselines:
             gap = stats.vpip - stats.pfr
             if gap > 10 and stats.total_hands >= MIN_HANDS_OVERALL:
+                # Severity based on gap size
+                deviation_pp = gap - 6.0
+                ev_loss = deviation_pp * 0.35
+                if gap > 30:
+                    severity = Severity.S
+                elif gap > 20:
+                    severity = Severity.A
+                elif gap > 14:
+                    severity = Severity.B
+                else:
+                    severity = Severity.C
                 leaks.append(Leak(
                     metric="vpip_pfr_gap",
                     description="VPIP-PFR 差距过大 — 过多冷跟注",
-                    severity=Severity.MODERATE if gap <= 14 else Severity.MAJOR,
+                    severity=severity,
                     actual_value=round(gap, 1),
                     baseline_low=0.0,
                     baseline_high=6.0,
                     position=position,
                     advice="减少翻前平跟的频率。大部分你选择入池的牌应该通过加注入池，而非冷跟注。",
+                    ev_loss_bb100=round(ev_loss, 2),
                 ))
 
         return leaks
@@ -235,7 +269,14 @@ class LeakDetector:
     def _create_leak(self, metric: str, direction: str,
                      value: float, low: float, high: float,
                      position: Optional[str]) -> Optional[Leak]:
-        """Create a Leak object for a metric outside its baseline range."""
+        """Create a Leak object for a metric outside its baseline range.
+        
+        Calculates EV loss estimate and assigns S/A/B/C severity:
+        - S: > 5 BB/100 EV loss (deviation > 15pp)
+        - A: 3-5 BB/100 (deviation > 10pp)
+        - B: 1-3 BB/100 (deviation > 5pp)
+        - C: < 1 BB/100 (deviation < 5pp)
+        """
         key = (metric, direction)
         if key not in LEAK_DESCRIPTIONS:
             return None
@@ -244,22 +285,24 @@ class LeakDetector:
         if position:
             description = f"[{position}] {description}"
 
-        # Determine severity based on how far outside the range
-        range_width = high - low
-        if range_width == 0:
-            range_width = 1.0
-
+        # Calculate absolute deviation in percentage points
         if direction == "low":
-            deviation = (low - value) / range_width
+            deviation_pp = low - value
         else:
-            deviation = (value - high) / range_width
+            deviation_pp = value - high
 
-        if deviation > 1.0:
-            severity = Severity.MAJOR
-        elif deviation > 0.5:
-            severity = Severity.MODERATE
+        # Estimate EV loss: ~0.35 BB/100 per percentage point deviation (empirical estimate)
+        ev_loss = deviation_pp * 0.35
+
+        # Determine severity based on EV loss
+        if ev_loss > 5.0:
+            severity = Severity.S
+        elif ev_loss > 3.0:
+            severity = Severity.A
+        elif ev_loss > 1.0:
+            severity = Severity.B
         else:
-            severity = Severity.MINOR
+            severity = Severity.C
 
         return Leak(
             metric=metric,
@@ -270,6 +313,7 @@ class LeakDetector:
             baseline_high=high,
             position=position,
             advice=advice,
+            ev_loss_bb100=round(ev_loss, 2),
         )
 
     def _merge_position_stats(self, player_stats: PlayerStats,
@@ -295,6 +339,7 @@ class LeakDetector:
                 merged.saw_flop += ps.saw_flop
                 merged.went_to_showdown += ps.went_to_showdown
                 merged.won_at_showdown += ps.won_at_showdown
+                merged.won_without_showdown += ps.won_without_showdown
                 merged.total_won += ps.total_won
                 merged.total_invested += ps.total_invested
         return merged

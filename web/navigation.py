@@ -6,12 +6,19 @@ from streamlit_option_menu import option_menu
 # Menu configuration: (label, icon, page_file)
 MENU_ITEMS = [
     ("首页", "house-fill", "app"),
-    ("统计分析", "bar-chart-line-fill", "pages/1_stats"),
-    ("漏洞检测", "search", "pages/2_leaks"),
-    ("AI 分析", "robot", "pages/3_ai_analysis"),
-    ("训练模式", "bullseye", "pages/4_training"),
+    ("数据分析", "bar-chart-line-fill", "pages/1_stats"),
+    ("复盘中心", "clock-history", "pages/3_ai_analysis"),
+    ("训练中心", "bullseye", "pages/4_training"),
     ("手牌历史", "journal-text", "pages/5_hands"),
 ]
+
+# Menu with sub-items for reference (future expansion)
+MENU_GROUPS = {
+    "数据分析": [("数据仪表盘", "pages/1_stats"), ("弱点诊断", "pages/2_leaks")],
+    "复盘中心": [("单局复盘", "pages/3_ai_analysis"), ("批量复盘", "pages/3_ai_analysis"), ("复盘记录", "pages/5_hands")],
+    "训练中心": [("我的训练方案", "pages/4_training"), ("专项训练库", "pages/4_training"), ("训练记录", "pages/4_training")],
+    "辅助工具": [],
+}
 
 # Custom styling for the dark poker theme
 MENU_STYLES = {

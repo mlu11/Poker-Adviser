@@ -69,6 +69,8 @@ class TextFormatter:
         lines.append(f"  Fold to C-Bet%: {d['Fold to C-Bet%']:5.1f}%")
         lines.append(f"  WTSD%:          {d['WTSD%']:5.1f}%")
         lines.append(f"  W$SD%:          {d['W$SD%']:5.1f}%")
+        lines.append(f"  WWSF%:          {d['WWSF%']:5.1f}%")
+        lines.append(f"  ROI%:           {d['ROI%']:5.1f}%")
 
         return "\n".join(lines)
 
@@ -78,18 +80,21 @@ class TextFormatter:
             return "No significant leaks detected. Keep playing solid poker!"
 
         severity_icons = {
-            Severity.MAJOR: "[!!!]",
-            Severity.MODERATE: "[!!]",
-            Severity.MINOR: "[!]",
+            Severity.S: "[🔥CRITICAL]",
+            Severity.A: "[!!!MAJOR]",
+            Severity.B: "[!!MODERATE]",
+            Severity.C: "[!MINOR]",
         }
 
         lines = ["=== Leak Analysis ===", ""]
-        for i, leak in enumerate(leaks, 1):
+        # Sort by EV loss descending
+        sorted_leaks = sorted(leaks, key=lambda l: (-l.ev_loss_bb100, l.severity))
+        
+        for i, leak in enumerate(sorted_leaks, 1):
             icon = severity_icons[leak.severity]
             lines.append(f"{i}. {icon} {leak.description}")
-            lines.append(f"   Value: {leak.actual_value:.1f}  "
-                         f"(baseline: {leak.baseline_low:.1f}-{leak.baseline_high:.1f})")
-            lines.append(f"   Severity: {leak.severity.value}")
+            lines.append(f"   Value: {leak.actual_value:.1f}  |  EV Loss: {leak.ev_loss_bb100:.2f} BB/100")
+            lines.append(f"   Baseline: {leak.baseline_low:.1f}-{leak.baseline_high:.1f}")
             if leak.advice:
                 lines.append(f"   Advice: {leak.advice}")
             lines.append("")

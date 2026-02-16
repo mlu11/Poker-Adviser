@@ -35,6 +35,7 @@ class PositionalStats:
     saw_flop: int = 0
     went_to_showdown: int = 0
     won_at_showdown: int = 0
+    won_without_showdown: int = 0  # Won when opponent folded before showdown
 
     # Money
     total_won: float = 0.0
@@ -71,6 +72,19 @@ class PositionalStats:
     @property
     def wsd(self) -> float:
         return self.won_at_showdown / self.went_to_showdown * 100 if self.went_to_showdown else 0.0
+
+    @property
+    def wwsf(self) -> float:
+        """Won Without Showdown Frequency: % of flops seen that you win without going to showdown."""
+        return self.won_without_showdown / self.saw_flop * 100 if self.saw_flop else 0.0
+
+    @property
+    def roi(self) -> float:
+        """Return on Investment: (total profit / total invested) * 100."""
+        if self.total_invested == 0:
+            return 0.0
+        profit = self.total_won - self.total_invested
+        return profit / self.total_invested * 100
 
     @property
     def bb_per_100(self) -> float:
@@ -110,6 +124,8 @@ class PlayerStats:
             "Fold to C-Bet%": self.overall.fold_to_cbet_pct,
             "WTSD%": self.overall.wtsd,
             "W$SD%": self.overall.wsd,
+            "WWSF%": self.overall.wwsf,
+            "ROI%": self.overall.roi,
             "BB/100": self.bb_per_100,
             "Hands": self.overall.total_hands,
         }
