@@ -92,6 +92,13 @@ class HandRepository:
                 (record_id, seat, amount),
             )
 
+        # Save uncalled bets
+        for seat, amount in hand.uncalled_bets.items():
+            conn.execute(
+                "INSERT INTO uncalled_bets (hand_record_id, seat, amount) VALUES (?, ?, ?)",
+                (record_id, seat, amount),
+            )
+
         return record_id
 
     def get_all_hands(self, session_id: Optional[str] = None) -> List[HandRecord]:
@@ -218,6 +225,14 @@ class HandRepository:
         ).fetchall()
         for wr in winner_rows:
             hand.winners[wr["seat"]] = wr["amount"]
+
+        # Load uncalled bets
+        uncalled_rows = conn.execute(
+            "SELECT seat, amount FROM uncalled_bets WHERE hand_record_id = ?",
+            (record_id,),
+        ).fetchall()
+        for ur in uncalled_rows:
+            hand.uncalled_bets[ur["seat"]] = ur["amount"]
 
         return hand
 

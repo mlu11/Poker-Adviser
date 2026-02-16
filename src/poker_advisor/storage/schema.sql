@@ -64,6 +64,14 @@ CREATE TABLE IF NOT EXISTS winners (
     FOREIGN KEY (hand_record_id) REFERENCES hands(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS uncalled_bets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hand_record_id INTEGER NOT NULL,
+    seat INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    FOREIGN KEY (hand_record_id) REFERENCES hands(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     filename TEXT,
