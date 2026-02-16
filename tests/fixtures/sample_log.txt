@@ -1,0 +1,48 @@
+-- ending hand #3 --
+"Player3" @ seat #5 collected $7.50 from pot with a pair of aces
+"Player1" @ seat #1 folds
+"Player3" @ seat #5 bets $3.00
+"Player2" @ seat #3 checks
+Flop:  [8♠, Q♥, 2♦]
+"Player3" @ seat #5 calls $1.00
+"Player1" @ seat #1 folds
+"Player2" @ seat #3 raises to $3.00
+Your hand is A♥, A♦
+"Player3" @ seat #5 posts a big blind of $1.00
+"Player2" @ seat #3 posts a small blind of $0.50
+Player stacks: "Player1" @ seat #1 ($100.00) | "Player2" @ seat #3 ($95.00) | "Player3" @ seat #5 ($105.00)
+-- starting hand #3 (dealer: "Player1") --
+-- ending hand #2 --
+"Player1" @ seat #1 collected $4.50 from pot
+"Player3" @ seat #5 folds
+"Player2" @ seat #3 folds
+"Player1" @ seat #1 raises to $3.00
+"Player3" @ seat #5 calls $1.00
+"Player2" @ seat #3 calls $0.50
+Your hand is K♠, Q♠
+"Player2" @ seat #3 posts a big blind of $1.00
+"Player1" @ seat #1 posts a small blind of $0.50
+Player stacks: "Player1" @ seat #1 ($100.00) | "Player2" @ seat #3 ($100.00) | "Player3" @ seat #5 ($100.00)
+-- starting hand #2 (dealer: "Player3") --
+-- ending hand #1 --
+"Player2" @ seat #3 collected $10.00 from pot
+"Player2" @ seat #3 shows a A of Hearts
+"Player2" @ seat #3 shows a K of Hearts
+"Player1" @ seat #1 shows a J of Spades
+"Player1" @ seat #1 shows a J of Hearts
+River:  [5♠, T♥, 7♦, 3♣, 9♠]
+"Player2" @ seat #3 calls $2.00
+"Player1" @ seat #1 bets $2.00
+Turn:  [5♠, T♥, 7♦, 3♣]
+"Player2" @ seat #3 calls $2.00
+"Player1" @ seat #1 bets $2.00
+Flop:  [5♠, T♥, 7♦]
+"Player2" @ seat #3 calls $1.00
+"Player1" @ seat #1 raises to $3.00
+"Player3" @ seat #5 folds
+"Player2" @ seat #3 calls $0.50
+Your hand is J♠, J♥
+"Player1" @ seat #1 posts a big blind of $1.00
+"Player3" @ seat #5 posts a small blind of $0.50
+Player stacks: "Player1" @ seat #1 ($100.00) | "Player2" @ seat #3 ($100.00) | "Player3" @ seat #5 ($100.00)
+-- starting hand #1 (dealer: "Player2") --

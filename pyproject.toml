@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poker-advisor"
+version = "0.1.0"
+description = "Texas Hold'em Poker Strategy Advisor"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "pydantic>=2.0",
+    "typer>=0.12.0",
+    "rich>=13.0",
+    "streamlit>=1.38.0",
+    "plotly>=5.18.0",
+    "pandas>=2.1.0",
+    "streamlit-aggrid>=1.0.5",
+    "streamlit-antd-components>=0.3.2",
+    "streamlit-shadcn-ui>=0.1.18",
+    "streamlit-option-menu>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+poker-advisor = "cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = ["poker_advisor*", "cli*", "web*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

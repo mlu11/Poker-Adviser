@@ -1,0 +1,74 @@
+-- ending hand #3
+"Alice" @ seat #3 collected $145.60 from the pot
+"Bob" @ seat #2 shows [Kh Th]
+"Alice" @ seat #1 shows [As Ah]
+River: [2♠ 7♥ 9♣ K♦ 3♠]
+"Bob" @ seat #2 raises to $60.00
+"Alice" @ seat #1 calls $60.00
+Turn: [2♠ 7♥ 9♣ K♦]
+"Bob" @ seat #2 bets $40.00
+"Alice" @ seat #1 calls $40.00
+Flop: [2♠ 7♥ 9♣]
+"Bob" @ seat #2 checks
+"Alice" @ seat #1 bets $20.00
+"Bob" @ seat #2 calls $20.00
+Your hand is As Ah
+"Charlie" @ seat #3 folds
+"Bob" @ seat #2 raises to $10.00
+"Alice" @ seat #1 calls $10.00
+"Charlie" @ seat #3 posts a big blind of $2.00
+"Bob" @ seat #2 posts a small blind of $1.00
+"Charlie" @ seat #3 ( $500.00 )
+"Bob" @ seat #2 ( $300.00 )
+"Alice" @ seat #1 ( $250.00 )
+-- starting hand #3 (dealer: "Charlie")
+-- ending hand #2
+"Bob" @ seat #2 collected $89.50 from the pot
+"Alice" @ seat #1 shows [Kh Qd]
+River: [5♠ Q♥ 8♦ J♣ 2♠]
+"Alice" @ seat #1 checks
+"Bob" @ seat #2 bets $25.00
+"Alice" @ seat #1 calls $25.00
+Turn: [5♠ Q♥ 8♦ J♣]
+"Alice" @ seat #1 checks
+"Bob" @ seat #2 bets $15.00
+"Alice" @ seat #1 calls $15.00
+Flop: [5♠ Q♥ 8♦]
+"Alice" @ seat #1 checks
+"Bob" @ seat #2 bets $10.00
+"Alice" @ seat #1 calls $10.00
+Your hand is Kh Qd
+"Charlie" @ seat #3 folds
+"Alice" @ seat #1 calls $2.00
+"Bob" @ seat #2 raises to $4.00
+"Charlie" @ seat #3 posts a big blind of $2.00
+"Bob" @ seat #2 posts a small blind of $1.00
+"Charlie" @ seat #3 ( $520.00 )
+"Bob" @ seat #2 ( $290.00 )
+"Alice" @ seat #1 ( $190.00 )
+-- starting hand #2 (dealer: "Bob")
+-- ending hand #1
+"Charlie" @ seat #3 collected $77.25 from the pot
+"Alice" @ seat #1 shows [Jd 9h]
+River: [3♠ 6♥ T♣ 5♦ K♠]
+"Alice" @ seat #1 checks
+"Charlie" @ seat #3 bets $30.00
+"Alice" @ seat #1 folds
+Turn: [3♠ 6♥ T♣ 5♦]
+"Charlie" @ seat #3 bets $20.00
+"Alice" @ seat #1 calls $20.00
+Flop: [3♠ 6♥ T♣]
+"Alice" @ seat #1 checks
+"Charlie" @ seat #3 bets $12.00
+"Alice" @ seat #1 calls $12.00
+Your hand is Jd 9h
+"Bob" @ seat #2 folds
+"Charlie" @ seat #3 raises to $8.00
+"Alice" @ seat #1 calls $8.00
+"Bob" @ seat #2 posts a big blind of $2.00
+"Charlie" @ seat #3 posts a small blind of $1.00
+"Charlie" @ seat #3 ( $600.00 )
+"Bob" @ seat #2 ( $320.00 )
+"Alice" @ seat #1 ( $230.00 )
+-- starting hand #1 (dealer: "Alice")
+Blinds increased to $1.00/$2.00
