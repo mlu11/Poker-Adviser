@@ -75,11 +75,11 @@ class StrategyAnalyzer:
 
         # Calculate SPR for each street
         pot_after_flop = hand.pot_total  # Simplified
-        if hand.flop_cards:
+        if hand.flop:
             context["flop_spr"] = context["effective_stack"] / pot_after_flop if pot_after_flop > 0 else 0
-        if hand.turn_card:
+        if hand.turn:
             context["turn_spr"] = context["effective_stack"] / (pot_after_flop * 2) if pot_after_flop > 0 else 0
-        if hand.river_card:
+        if hand.river:
             context["river_spr"] = context["effective_stack"] / (pot_after_flop * 3) if pot_after_flop > 0 else 0
 
         return context

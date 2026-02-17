@@ -105,6 +105,104 @@ class HandRecord:
     def hero_won(self) -> bool:
         return self.hero_seat is not None and self.hero_seat in self.winners
 
+    @property
+    def hand_type(self) -> str:
+        """识别手牌类型（简化版）"""
+        # 组合英雄手牌和公共牌
+        all_cards = self.hero_cards + self.board
+
+        if not all_cards:
+            return "未知牌型"
+
+        # 统计牌的数值和花色
+        rank_counts = {}
+        suit_counts = {}
+
+        for card in all_cards:
+            rank = card.rank.numeric_value
+            suit = card.suit
+
+            rank_counts[rank] = rank_counts.get(rank, 0) + 1
+            suit_counts[suit] = suit_counts.get(suit, 0) + 1
+
+        # 识别牌型
+        if 4 in rank_counts.values():
+            return "四条"
+        if 3 in rank_counts.values() and 2 in rank_counts.values():
+            return "葫芦"
+        if max(suit_counts.values()) >= 5:
+            # 检查是否是同花顺
+            suited_cards = [c for c in all_cards if all_cards.count(c) > 0 and c.suit == max(suit_counts, key=suit_counts.get)]
+            if self._has_straight(suited_cards):
+                # 检查是否是皇家同花顺
+                all_ranks = [c.rank.numeric_value for c in all_cards]
+                has_royal = 14 in all_ranks and 13 in all_ranks and 12 in all_ranks and 11 in all_ranks and 10 in all_ranks
+                if has_royal:
+                    return "皇家同花顺"
+                else:
+                    return "同花顺"
+            else:
+                return "同花"
+        if max(suit_counts.values()) >= 5:
+            return "同花"
+
+        # 检查是否有顺子
+        has_straight = self._has_straight(all_cards)
+
+        # 检查是否有其他牌型
+        has_three_of_a_kind = 3 in rank_counts.values()
+        has_two_pairs = list(rank_counts.values()).count(2) >= 2
+        has_one_pair = 2 in rank_counts.values()
+
+        if has_three_of_a_kind:
+            return "三条"
+        elif has_two_pairs:
+            return "两对"
+        elif has_one_pair:
+            return "一对"
+        elif has_straight:
+            return "顺子"
+        else:
+            return "高牌"
+
+    def _has_straight(self, cards) -> bool:
+        """判断是否有顺子"""
+        if len(cards) < 5:
+            return False
+
+        ranks = sorted([card.rank.numeric_value for card in cards])
+        unique_ranks = sorted(list(set(ranks)))
+
+        # 检查是否有连续的5个数值
+        for i in range(len(unique_ranks) - 4):
+            if unique_ranks[i+4] - unique_ranks[i] == 4:
+                return True
+
+        # 检查A-2-3-4-5的特殊情况
+        if 14 in unique_ranks and 2 in unique_ranks and 3 in unique_ranks and 4 in unique_ranks and 5 in unique_ranks:
+            return True
+
+        return False
+
+    def get_hand_strength(self) -> int:
+        """计算手牌强度（简化版）"""
+        # 根据手牌类型返回强度值
+        # 高牌: 0, 一对: 1, 两对: 2, 三条: 3, 顺子: 4, 同花: 5, 葫芦: 6, 四条: 7, 同花顺: 8, 皇家同花顺: 9
+        type_map = {
+            "高牌": 0,
+            "一对": 1,
+            "两对": 2,
+            "三条": 3,
+            "顺子": 4,
+            "同花": 5,
+            "葫芦": 6,
+            "四条": 7,
+            "同花顺": 8,
+            "皇家同花顺": 9
+        }
+
+        return type_map.get(self.hand_type, 0)
+
     def summary(self) -> str:
         parts = [f"Hand #{self.hand_id}"]
         if self.hero_cards:

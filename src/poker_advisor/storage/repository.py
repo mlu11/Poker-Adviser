@@ -102,7 +102,7 @@ class HandRepository:
         return record_id
 
     def get_all_hands(self, session_id: Optional[str] = None) -> List[HandRecord]:
-        """Retrieve all hands, optionally filtered by session."""
+        """Retrieve all hands, optionally filtered by session. Returns unique hand_ids only."""
         with self.db.connect() as conn:
             if session_id:
                 rows = conn.execute(
@@ -114,7 +114,15 @@ class HandRepository:
                     "SELECT id, * FROM hands ORDER BY hand_id"
                 ).fetchall()
 
-            return [self._row_to_hand(conn, row) for row in rows]
+            # Filter out duplicate hand_ids
+            unique_rows = []
+            seen_hand_ids = set()
+            for row in rows:
+                if row["hand_id"] not in seen_hand_ids:
+                    seen_hand_ids.add(row["hand_id"])
+                    unique_rows.append(row)
+
+            return [self._row_to_hand(conn, row) for row in unique_rows]
 
     def get_hand(self, record_id: int) -> Optional[HandRecord]:
         """Retrieve a single hand by its database id."""
