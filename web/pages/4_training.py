@@ -375,7 +375,7 @@ elif selected_tab == "训练记录":
                 yaxis=dict(range=[0, 10.5], gridcolor=COLORS["card_border"],
                            zerolinecolor=COLORS["card_border"]),
             )
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width="stretch")
 
         # --- Chart 2: Scenario type distribution (Bar chart) ---
         if "scenario_type" in df.columns:
@@ -394,7 +394,7 @@ elif selected_tab == "训练记录":
                 xaxis_title="场景类型",
                 yaxis_title="次数",
             )
-            st.plotly_chart(fig_types, use_container_width=True)
+            st.plotly_chart(fig_types, width="stretch")
 
         # ---错题本区域---
         sac.divider(label="错题本", icon="exclamation-triangle", color="green")

@@ -127,7 +127,7 @@ if pos_rows:
         xaxis_title="位置",
         yaxis_title="百分比 (%)",
     )
-    st.plotly_chart(fig_vpip, use_container_width=True)
+    st.plotly_chart(fig_vpip, width="stretch")
 
     # Radar chart — position group comparison (preserved, with dark theme)
     group_rows = analyzer.group_summary(stats)
@@ -156,7 +156,7 @@ if pos_rows:
             ),
             height=450,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         st.caption("注: AF 值已乘以 10 以便在图表中可见")
 else:
     st.info("位置数据不足，无法生成分析。")
@@ -192,7 +192,7 @@ fig_cum.update_layout(
     xaxis_title="手牌序号",
     yaxis_title="累计收益 ($)",
 )
-st.plotly_chart(fig_cum, use_container_width=True)
+st.plotly_chart(fig_cum, width="stretch")
 
 # --- Chart 3: Post-flop action distribution (Grouped bar) ---
 sac.divider(label="翻后行动分布", icon="layers", color="green")
@@ -237,4 +237,4 @@ fig_actions.update_layout(
     xaxis_title="回合",
     yaxis_title="次数",
 )
-st.plotly_chart(fig_actions, use_container_width=True)
+st.plotly_chart(fig_actions, width="stretch")

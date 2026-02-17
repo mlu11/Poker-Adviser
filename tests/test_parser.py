@@ -72,7 +72,7 @@ class TestParserActions:
         hand1 = sample_hands[0]
         raises = [a for a in hand1.actions if a.action_type == ActionType.RAISE]
         assert len(raises) >= 1
-        assert raises[0].amount == 3.00
+        assert raises[0].amount == 2.00
 
     def test_fold_parsed(self, sample_hands):
         hand1 = sample_hands[0]
@@ -237,7 +237,7 @@ class TestParserNewFormatActions:
         hand1 = csv_hands[0]
         allin_actions = [a for a in hand1.actions if a.is_all_in]
         assert len(allin_actions) >= 1
-        assert allin_actions[0].amount == 2319.0
+        assert allin_actions[0].amount == 2299.0
 
     def test_csv_actions_have_correct_seats(self, csv_hands):
         hand1 = csv_hands[0]

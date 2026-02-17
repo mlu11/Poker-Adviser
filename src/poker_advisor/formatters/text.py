@@ -12,25 +12,30 @@ class TextFormatter:
     """Format poker data as plain text for terminal display."""
 
     def format_hand(self, hand: HandRecord) -> str:
-        """Format a single hand for display."""
+        """Format a single hand for display with improved readability."""
         lines = []
-        lines.append(f"=== Hand #{hand.hand_id} ===")
+        lines.append(f"### Hand #{hand.hand_id}")
+        lines.append("")
 
         if hand.timestamp:
-            lines.append(f"Time: {hand.timestamp}")
+            lines.append(f"**Time:** {hand.timestamp}")
+            lines.append("")
 
-        lines.append(f"Players: {hand.player_count}  |  "
-                     f"Blinds: ${hand.small_blind:.2f}/${hand.big_blind:.2f}  |  "
-                     f"Pot: ${hand.pot_total:.2f}")
+        lines.append(f"**Players:** {hand.player_count}  |  "
+                     f"**Blinds:** ${hand.small_blind:.2f}/${hand.big_blind:.2f}  |  "
+                     f"**Pot:** ${hand.pot_total:.2f}")
+        lines.append("")
 
         # Hero info
         if hand.hero_cards:
             pos_str = f" ({hand.hero_position.value})" if hand.hero_position else ""
-            lines.append(f"Hero: {hand.hero_cards_str}{pos_str}")
+            lines.append(f"**Hero:** {hand.hero_cards_str}{pos_str}")
+            lines.append("")
 
         # Board
         if hand.board:
-            lines.append(f"Board: {hand.board_str}")
+            lines.append(f"**Board:** {hand.board_str}")
+            lines.append("")
 
         # Actions by street
         for street in hand.streets_seen:
@@ -38,16 +43,20 @@ class TextFormatter:
             non_blind = [a for a in street_actions
                          if street != Street.PREFLOP or a.action_type.value != "post_blind"]
             if non_blind:
-                lines.append(f"\n  [{street.value.upper()}]")
+                lines.append(f"#### [{street.value.upper()}]")
+                lines.append("")
                 for a in non_blind:
-                    lines.append(f"    {a}")
+                    lines.append(f"- {a}")
+                lines.append("")
 
         # Result
         if hand.winners:
+            lines.append("#### Result")
             lines.append("")
             for seat, amount in hand.winners.items():
                 name = hand.players.get(seat, f"Seat {seat}")
-                lines.append(f"  Winner: {name} (${amount:.2f})")
+                lines.append(f"- **Winner:** {name} (${amount:.2f})")
+            lines.append("")
 
         return "\n".join(lines)
 

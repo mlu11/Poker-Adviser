@@ -80,6 +80,26 @@ class TestHandTypeRecognition:
         hand.river = Card.parse("6d")
         return hand
 
+    @pytest.fixture
+    def hand_with_straight_flush(self):
+        """Hand with a straight flush."""
+        hand = HandRecord(hand_id=8)
+        hand.hero_cards = [Card.parse("2h"), Card.parse("3h")]
+        hand.flop = [Card.parse("4h"), Card.parse("5h"), Card.parse("6h")]
+        hand.turn = Card.parse("7h")
+        hand.river = Card.parse("8d")
+        return hand
+
+    @pytest.fixture
+    def hand_with_royal_flush(self):
+        """Hand with a royal flush."""
+        hand = HandRecord(hand_id=9)
+        hand.hero_cards = [Card.parse("Ah"), Card.parse("Kh")]
+        hand.flop = [Card.parse("Qh"), Card.parse("Jh"), Card.parse("Th")]
+        hand.turn = Card.parse("9h")
+        hand.river = Card.parse("8d")
+        return hand
+
     def test_unknown_hand_type(self):
         """Test that an empty hand returns '未知牌型'."""
         hand = HandRecord(hand_id=0)
@@ -130,3 +150,13 @@ class TestHandTypeRecognition:
         """Test four of a kind hand type."""
         assert hand_with_four_of_a_kind.hand_type == "四条"
         assert hand_with_four_of_a_kind.get_hand_strength() == 7
+
+    def test_straight_flush(self, hand_with_straight_flush):
+        """Test straight flush hand type."""
+        assert hand_with_straight_flush.hand_type == "同花顺"
+        assert hand_with_straight_flush.get_hand_strength() == 8
+
+    def test_royal_flush(self, hand_with_royal_flush):
+        """Test royal flush hand type."""
+        assert hand_with_royal_flush.hand_type == "皇家同花顺"
+        assert hand_with_royal_flush.get_hand_strength() == 9

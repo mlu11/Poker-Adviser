@@ -155,7 +155,7 @@ if selected_tab == "手牌列表":
             xaxis_title="位置",
             yaxis_title="手数",
         )
-        st.plotly_chart(fig_pos, use_container_width=True)
+        st.plotly_chart(fig_pos, width="stretch")
 
     # --- Chart 2: Pot size distribution (Histogram) ---
     sac.divider(label="底池大小分布", icon="coin", color="green")
@@ -175,7 +175,7 @@ if selected_tab == "手牌列表":
             xaxis_title="底池大小 ($)",
             yaxis_title="频次",
         )
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_hist, width="stretch")
 
 # --- Tab 2: Sessions ---
 elif selected_tab == "导入会话":

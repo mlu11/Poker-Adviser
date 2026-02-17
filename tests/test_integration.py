@@ -77,7 +77,7 @@ class TestFullPipeline:
         # Summary dict has all expected keys
         d = stats.summary_dict()
         expected_keys = {"VPIP", "PFR", "3-Bet%", "AF", "C-Bet%",
-                         "Fold to C-Bet%", "WTSD%", "W$SD%", "BB/100", "Hands"}
+                         "Fold to C-Bet%", "WTSD%", "W$SD%", "BB/100", "Hands", "WWSF%", "ROI%"}
         assert set(d.keys()) == expected_keys
 
     def test_parse_to_positional(self, parsed_hands):
@@ -142,8 +142,22 @@ class TestFullPipeline:
 
     def test_multiple_sessions(self, repo, parsed_hands):
         """Import multiple sessions and filter by session."""
-        sid1 = repo.save_session(parsed_hands, filename="session1.txt")
-        sid2 = repo.save_session(parsed_hands, filename="session2.txt")
+        # 为第一个会话创建唯一的 hand_id
+        session1_hands = []
+        for i, hand in enumerate(parsed_hands):
+            new_hand = hand.__class__(**hand.__dict__)
+            new_hand.hand_id = i + 1
+            session1_hands.append(new_hand)
+
+        # 为第二个会话创建唯一的 hand_id
+        session2_hands = []
+        for i, hand in enumerate(parsed_hands):
+            new_hand = hand.__class__(**hand.__dict__)
+            new_hand.hand_id = i + 100
+            session2_hands.append(new_hand)
+
+        sid1 = repo.save_session(session1_hands, filename="session1.txt")
+        sid2 = repo.save_session(session2_hands, filename="session2.txt")
 
         all_hands = repo.get_all_hands()
         assert len(all_hands) == 6

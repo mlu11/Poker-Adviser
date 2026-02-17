@@ -135,7 +135,7 @@ fig_donut.update_layout(
     title="漏洞严重程度分布",
     showlegend=True,
 )
-st.plotly_chart(fig_donut, use_container_width=True)
+st.plotly_chart(fig_donut, width="stretch")
 
 # --- Chart 2: Actual vs Baseline Range (Horizontal bar + scatter) ---
 sac.divider(label="实际值 vs 基线", icon="sliders", color="green")
@@ -188,4 +188,4 @@ fig_compare.update_layout(
     xaxis_title="数值",
     barmode="overlay",
 )
-st.plotly_chart(fig_compare, use_container_width=True)
+st.plotly_chart(fig_compare, width="stretch")

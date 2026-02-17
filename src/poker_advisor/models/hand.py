@@ -132,7 +132,7 @@ class HandRecord:
             return "葫芦"
         if max(suit_counts.values()) >= 5:
             # 检查是否是同花顺
-            suited_cards = [c for c in all_cards if all_cards.count(c) > 0 and c.suit == max(suit_counts, key=suit_counts.get)]
+            suited_cards = [c for c in all_cards if c.suit == max(suit_counts, key=suit_counts.get)]
             if self._has_straight(suited_cards):
                 # 检查是否是皇家同花顺
                 all_ranks = [c.rank.numeric_value for c in all_cards]

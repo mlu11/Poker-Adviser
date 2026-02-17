@@ -6,10 +6,10 @@ from streamlit_option_menu import option_menu
 # Menu configuration: (label, icon, page_file)
 MENU_ITEMS = [
     ("首页", "house-fill", "app"),
-    ("数据分析", "bar-chart-line-fill", "pages/1_stats"),
-    ("复盘中心", "clock-history", "pages/3_ai_analysis"),
-    ("训练中心", "bullseye", "pages/4_training"),
-    ("手牌历史", "journal-text", "pages/5_hands"),
+    ("数据分析", "bar-chart-line-fill", "1_stats"),
+    ("复盘中心", "clock-history", "3_ai_analysis"),
+    ("训练中心", "bullseye", "4_training"),
+    ("手牌历史", "journal-text", "5_hands"),
 ]
 
 # Menu with sub-items for reference (future expansion)
@@ -68,6 +68,9 @@ def render_sidebar_nav(current_page: str) -> str:
 
     # Determine default index
     default_idx = 0
+    # 处理当前页面路径，去掉"pages/"前缀
+    if current_page.startswith("pages/"):
+        current_page = current_page[len("pages/"):]
     for i, key in enumerate(keys):
         if key == current_page:
             default_idx = i
@@ -90,6 +93,6 @@ def render_sidebar_nav(current_page: str) -> str:
         if selected_key == "app":
             st.switch_page("app.py")
         else:
-            st.switch_page(f"{selected_key}.py")
+            st.switch_page(f"pages/{selected_key}.py")
 
     return selected_key
