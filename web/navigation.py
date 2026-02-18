@@ -10,6 +10,7 @@ MENU_ITEMS = [
     ("复盘中心", "clock-history", "3_ai_analysis"),
     ("训练中心", "bullseye", "4_training"),
     ("手牌历史", "journal-text", "5_hands"),
+    ("数据管理", "database-gear", "6_management"),
 ]
 
 # Menu with sub-items for reference (future expansion)

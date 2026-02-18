@@ -143,13 +143,16 @@ class StatsCalculator:
                 if folded:
                     stats.folded_to_cbet += 1
 
-        # Showdown
-        if hand.went_to_showdown:
+        # Showdown — only count if hero actually reached showdown (didn't fold)
+        hero_folded = any(
+            a.seat == hero_seat and a.action_type == ActionType.FOLD
+            for a in hand.actions
+        )
+        if hand.went_to_showdown and not hero_folded:
             stats.went_to_showdown += 1
             if hero_seat in hand.winners:
                 stats.won_at_showdown += 1
         else:
-            # Hand ended before showdown — did hero win without going to showdown?
             if hero_seat in hand.winners:
                 stats.won_without_showdown += 1
 

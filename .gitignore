@@ -23,3 +23,10 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Temporary screenshots
+*.png
+
+# Claude Code
+.claude/
+.playwright-mcp/

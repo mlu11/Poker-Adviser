@@ -471,3 +471,102 @@ class HandRepository:
         """Remove a review note by ID."""
         with self.db.connect() as conn:
             conn.execute("DELETE FROM review_notes WHERE id = ?", (note_id,))
+
+    # === Session Management Methods ===
+    def delete_session(self, session_id: str) -> dict:
+        """Delete a session and all associated data. Returns deletion summary."""
+        with self.db.connect() as conn:
+            # Count rows before deletion
+            hands_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM hands WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+            bookmarks_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM bookmarks WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+            analysis_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM analysis_results WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+            notes_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM review_notes WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+
+            # Delete non-FK tables manually
+            conn.execute("DELETE FROM bookmarks WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM analysis_results WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM review_notes WHERE session_id = ?", (session_id,))
+            # Delete hands (CASCADE cleans players/actions/shown_cards/winners/uncalled_bets)
+            conn.execute("DELETE FROM hands WHERE session_id = ?", (session_id,))
+            # Delete session record
+            conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+            return {
+                "session_id": session_id,
+                "hands_deleted": hands_count,
+                "bookmarks_deleted": bookmarks_count,
+                "analysis_deleted": analysis_count,
+                "notes_deleted": notes_count,
+            }
+
+    def delete_all_data(self) -> dict:
+        """Delete all data from all tables. Returns deletion summary."""
+        with self.db.connect() as conn:
+            tables = [
+                "bookmarks", "analysis_results", "review_notes",
+                "training_results", "training_plans",
+                "hands", "sessions",
+            ]
+            summary = {}
+            for table in tables:
+                count = conn.execute(f"SELECT COUNT(*) as cnt FROM {table}").fetchone()["cnt"]
+                conn.execute(f"DELETE FROM {table}")
+                summary[table] = count
+            return summary
+
+    def get_session_detail(self, session_id: str) -> Optional[dict]:
+        """Get detailed session info including stats and related data counts."""
+        with self.db.connect() as conn:
+            session_row = conn.execute(
+                "SELECT * FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if not session_row:
+                return None
+
+            info = dict(session_row)
+
+            # Hand stats
+            stats = conn.execute(
+                """SELECT COUNT(*) as total,
+                       SUM(hero_won) as wins,
+                       SUM(went_to_showdown) as showdowns,
+                       AVG(pot_total) as avg_pot
+                FROM hands WHERE session_id = ?""",
+                (session_id,),
+            ).fetchone()
+            info["total_hands"] = stats["total"] or 0
+            info["wins"] = stats["wins"] or 0
+            info["win_rate"] = (
+                round(info["wins"] / info["total_hands"] * 100, 1)
+                if info["total_hands"] > 0 else 0
+            )
+            info["showdowns"] = stats["showdowns"] or 0
+            info["avg_pot"] = round(stats["avg_pot"] or 0, 2)
+
+            # Related data counts
+            info["bookmarks_count"] = conn.execute(
+                "SELECT COUNT(*) as cnt FROM bookmarks WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+            info["analysis_count"] = conn.execute(
+                "SELECT COUNT(*) as cnt FROM analysis_results WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+            info["notes_count"] = conn.execute(
+                "SELECT COUNT(*) as cnt FROM review_notes WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()["cnt"]
+
+            return info

@@ -65,7 +65,7 @@ class TrainingPlanGenerator:
         ),
         "WTSD过高": TrainingModule(
             name="翻后弃牌训练",
-            focus_area="postflop",
+            focus_area="flop",
             focus_leak="WTSD",
             description="学习在翻后面对对手进攻时及时弃牌，设定弃牌即胜利",
             duration_minutes=40,
@@ -74,7 +74,7 @@ class TrainingPlanGenerator:
         ),
         "W$SD过低": TrainingModule(
             name="摊牌范围优化训练",
-            focus_area="showdown",
+            focus_area="river",
             focus_leak="W$SD",
             description="只在有强牌时才跟注到摊牌，提升摊牌胜率",
             duration_minutes=45,
@@ -83,7 +83,7 @@ class TrainingPlanGenerator:
         ),
         "WWSF过低": TrainingModule(
             name="不摊牌赢训练",
-            focus_area="postflop",
+            focus_area="flop",
             focus_leak="WWSF",
             description="学习在翻后积极进攻，争取不摊牌就赢底池",
             duration_minutes=40,
@@ -101,7 +101,7 @@ class TrainingPlanGenerator:
         ),
         "AF过低": TrainingModule(
             name="翻后攻击性训练",
-            focus_area="postflop",
+            focus_area="flop",
             focus_leak="AF",
             description="提升翻后攻击性，学习在有利位置主动下注和加注",
             duration_minutes=45,
@@ -124,9 +124,15 @@ class TrainingPlanGenerator:
         """Generate personalized training plan from leaks."""
         modules: List[TrainingModule] = []
 
-        # Take top 3-5 most severe leaks by EV loss
+        # Take top 3 most severe unique leaks by EV loss
         sorted_leaks = sorted(leaks, key=lambda l: (-l.ev_loss_bb100, l.severity))
-        top_leaks = sorted_leaks[:5]
+        top_leaks = []
+        seen_metrics = set()
+
+        for leak in sorted_leaks:
+            if leak.metric not in seen_metrics and len(top_leaks) < 3:
+                top_leaks.append(leak)
+                seen_metrics.add(leak.metric)
 
         # Map each leak to training module
         for leak in top_leaks:
@@ -160,10 +166,20 @@ class TrainingPlanGenerator:
 
     def _leak_to_module(self, leak: Leak) -> TrainingModule:
         """Map a leak to corresponding training module."""
-        # Find best matching module based on leak description
-        for key, module in self.LEAK_MODULES.items():
-            if key in leak.description:
-                return module
+        # Find best matching module based on leak metric
+        metric_map = {
+            "vpip": "VPIP太高",
+            "vpip_pfr_gap": "VPIP-PFR差距过大",
+            "wtsd": "WTSD过高",
+            "wsd": "W$SD过低",
+            "wwsf": "WWSF过低",
+            "cbet_pct": "C-Bet过低",
+            "af": "AF过低",
+            "three_bet_pct": "3-Bet过低"
+        }
+
+        if leak.metric in metric_map and metric_map[leak.metric] in self.LEAK_MODULES:
+            return self.LEAK_MODULES[metric_map[leak.metric]]
 
         # Fallback: match by severity
         if leak.severity in [Severity.S, Severity.A]:

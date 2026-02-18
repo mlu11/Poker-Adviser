@@ -79,7 +79,9 @@ class TrainingSession:
         )
 
         # Apply difficulty-based filtering/sorting
-        return self._filter_by_difficulty(scenarios, self.current_difficulty)
+        scenarios = self._filter_by_difficulty(scenarios, self.current_difficulty)
+
+        return scenarios
 
     def evaluate(self, scenario: Scenario, user_action: str,
                  user_reasoning: str = "") -> TrainingEvaluation:

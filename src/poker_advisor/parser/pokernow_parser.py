@@ -138,6 +138,23 @@ class PokerNowParser:
         if pending_show_lines and last_completed_hand is not None:
             self._apply_show_lines(last_completed_hand, pending_show_lines)
 
+        # Second pass: propagate hero identity to hands where hero_seat is unknown.
+        # Some hands identify the hero via showdown; use that name for all hands.
+        hero_name = None
+        for h in hands:
+            if h.hero_name:
+                hero_name = h.hero_name
+                break
+
+        if hero_name:
+            for h in hands:
+                if h.hero_cards and h.hero_seat is None:
+                    for seat, name in h.players.items():
+                        if name == hero_name:
+                            h.hero_seat = seat
+                            h.hero_name = hero_name
+                            break
+
         return hands
 
     def _extract_csv_entries(self, text: str) -> List[str]:
