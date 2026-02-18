@@ -238,3 +238,239 @@ fig_actions.update_layout(
     yaxis_title="次数",
 )
 st.plotly_chart(fig_actions, width="stretch")
+
+# --- Chart 4: Ability Radar (能力画像) ---
+sac.divider(label="能力画像雷达图", icon="stars", color="green")
+
+# Load GTO baselines for comparison
+import json
+from pathlib import Path
+
+baseline_path = Path(__file__).parent.parent / "config" / "baselines.json"
+baselines = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
+overall_baseline = baselines.get("overall", {})
+
+# Calculate ability scores (0-100) based on distance from GTO baseline
+def calculate_score(actual, low, high, inverse=False):
+    """Calculate a 0-100 score based on how close actual is to the baseline range."""
+    mid = (low + high) / 2
+    max_deviation = max(mid - low, high - mid) * 2
+    deviation = abs(actual - mid)
+    score = max(0, 100 - (deviation / max_deviation) * 100)
+    return 100 - score if inverse else score
+
+# Define ability metrics and their baselines
+ability_metrics = [
+    ("入池松紧", "vpip", stats.overall.vpip, overall_baseline.get("vpip", [22, 30])),
+    ("翻前攻击性", "pfr", stats.overall.pfr, overall_baseline.get("pfr", [17, 24])),
+    ("3-Bet频率", "three_bet", stats.overall.three_bet_pct, overall_baseline.get("three_bet_pct", [6, 10])),
+    ("翻后攻击性", "af", stats.overall.aggression_factor * 20, [40, 80]),  # Scale AF to 0-100
+    ("持续下注", "cbet", stats.overall.cbet_pct, overall_baseline.get("cbet_pct", [55, 75])),
+    ("面对C-Bet弃牌", "fold_to_cbet", stats.overall.folded_to_cbet_pct, overall_baseline.get("fold_to_cbet", [35, 55])),
+    ("摊牌率", "wtsd", stats.overall.wtsd, overall_baseline.get("wtsd", [25, 35])),
+    ("摊牌胜率", "wsd", stats.overall.wsd, overall_baseline.get("wsd", [48, 56])),
+]
+
+# Calculate scores for each metric
+ability_labels = []
+ability_scores_actual = []
+ability_scores_baseline = []
+
+for label, key, actual, (low, high) in ability_metrics:
+    ability_labels.append(label)
+    # Score for actual (closeness to baseline)
+    score = calculate_score(actual, low, high)
+    ability_scores_actual.append(score)
+    # Baseline midpoint gets 100
+    ability_scores_baseline.append(100)
+
+fig_radar = go.Figure()
+fig_radar.add_trace(go.Scatterpolar(
+    r=ability_scores_actual + [ability_scores_actual[0]],
+    theta=ability_labels + [ability_labels[0]],
+    fill="toself",
+    name="你的能力",
+    line=dict(color=COLORS["accent_green"], width=3),
+    fillcolor="rgba(46,204,113,0.2)",
+))
+fig_radar.add_trace(go.Scatterpolar(
+    r=ability_scores_baseline + [ability_scores_baseline[0]],
+    theta=ability_labels + [ability_labels[0]],
+    fill="none",
+    name="GTO基准",
+    line=dict(color=COLORS["accent_gold"], width=2, dash="dash"),
+))
+fig_radar.update_layout(
+    **PLOTLY_LAYOUT,
+    polar=dict(
+        radialaxis=dict(
+            visible=True,
+            range=[0, 100],
+            gridcolor=COLORS["card_border"],
+            tickfont=dict(color=COLORS["text_muted"]),
+        ),
+        angularaxis=dict(
+            tickfont=dict(color=COLORS["text_primary"], size=12),
+            gridcolor=COLORS["card_border"],
+        ),
+        bgcolor="rgba(0,0,0,0)",
+    ),
+    height=550,
+    title="能力画像雷达图 (与GTO基准对比)",
+    showlegend=True,
+)
+st.plotly_chart(fig_radar, width="stretch")
+
+# Show detailed ability scores
+with st.expander("查看详细能力评分"):
+    score_rows = []
+    for label, key, actual, (low, high) in ability_metrics:
+        score = calculate_score(actual, low, high)
+        score_rows.append({
+            "能力维度": label,
+            "实际值": f"{actual:.1f}%",
+            "GTO范围": f"{low:.1f}% - {high:.1f}%",
+            "评分": f"{score:.0f}/100",
+            "状态": "✅" if score >= 70 else "⚠️" if score >= 50 else "❌"
+        })
+    df_scores = pd.DataFrame(score_rows)
+    st.dataframe(df_scores, use_container_width=True, hide_index=True)
+
+# --- Chart 5: Time Analysis (时间维度分析) ---
+sac.divider(label="时间维度分析", icon="clock-history", color="green")
+
+# Try to extract dates from timestamps
+def parse_timestamp(ts):
+    """Parse timestamp string - handle various formats."""
+    if not ts:
+        return None
+    try:
+        # Try ISO format first
+        if "T" in ts:
+            from datetime import datetime
+            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        # Try simple date
+        for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"]:
+            try:
+                from datetime import datetime
+                return datetime.strptime(ts[:10], fmt)
+            except:
+                continue
+    except:
+        pass
+    return None
+
+# Group hands by date
+from collections import defaultdict
+daily_stats = defaultdict(lambda: {
+    "hands": 0, "profit": 0.0, "vpip_sum": 0.0, "pfr_sum": 0.0,
+    "won_count": 0, "showdown_count": 0
+})
+
+calc = StatsCalculator()
+
+for h in hands:
+    # Try to get date from hand
+    dt = parse_timestamp(h.timestamp)
+    if not dt:
+        # Use hand sequence if no timestamp
+        date_key = "按手数分组"
+    else:
+        date_key = dt.strftime("%Y-%m-%d")
+
+    daily_stats[date_key]["hands"] += 1
+
+    # Calculate profit for this hand
+    if h.hero_seat is not None:
+        hero_won_amt = h.winners.get(h.hero_seat, 0)
+        hero_invested = calc._total_invested(h, h.hero_seat)
+        daily_stats[date_key]["profit"] += (hero_won_amt - hero_invested)
+
+        # Check if hero won
+        if h.hero_seat in h.winners:
+            daily_stats[date_key]["won_count"] += 1
+
+        # Check went to showdown
+        hero_folded = any(
+            a.seat == h.hero_seat and a.action_type == ActionType.FOLD
+            for a in h.actions
+        )
+        if h.went_to_showdown and not hero_folded:
+            daily_stats[date_key]["showdown_count"] += 1
+
+# Prepare time series data
+if len(daily_stats) > 0:
+    date_labels = sorted(daily_stats.keys())
+    profits = [daily_stats[d]["profit"] for d in date_labels]
+    hand_counts = [daily_stats[d]["hands"] for d in date_labels]
+    win_rates = [
+        (daily_stats[d]["won_count"] / daily_stats[d]["hands"] * 100)
+        if daily_stats[d]["hands"] > 0 else 0
+        for d in date_labels
+    ]
+
+    # Cumulative profit over time
+    cumulative_profit = []
+    running = 0.0
+    for p in profits:
+        running += p
+        cumulative_profit.append(running)
+
+    # Time chart
+    fig_time = go.Figure()
+
+    # Add profit bars
+    fig_time.add_trace(go.Bar(
+        x=date_labels,
+        y=profits,
+        name="单日收益 ($)",
+        marker_color=[COLORS["accent_green"] if p >= 0 else COLORS["accent_red"] for p in profits],
+        opacity=0.7,
+        yaxis="y",
+    ))
+
+    # Add cumulative profit line
+    fig_time.add_trace(go.Scatter(
+        x=date_labels,
+        y=cumulative_profit,
+        name="累计收益 ($)",
+        line=dict(color=COLORS["accent_gold"], width=3),
+        yaxis="y2",
+    ))
+
+    fig_time.update_layout(
+        **PLOTLY_LAYOUT,
+        height=400,
+        title="时间维度收益分析",
+        xaxis_title="日期",
+        yaxis=dict(
+            title="单日收益 ($)",
+            side="left",
+            gridcolor=COLORS["card_border"],
+        ),
+        yaxis2=dict(
+            title="累计收益 ($)",
+            side="right",
+            overlaying="y",
+            gridcolor=COLORS["card_border"],
+        ),
+        legend=dict(x=0, y=1.1, orientation="h"),
+    )
+    st.plotly_chart(fig_time, width="stretch")
+
+    # Summary stats by time period
+    with st.expander("查看时间段统计详情"):
+        time_detail_rows = []
+        for d in date_labels:
+            s = daily_stats[d]
+            time_detail_rows.append({
+                "日期": d,
+                "手数": s["hands"],
+                "收益": f"${s['profit']:+.2f}",
+                "胜率": f"{(s['won_count']/s['hands']*100):.1f}%" if s["hands"] > 0 else "-",
+                "摊牌率": f"{(s['showdown_count']/s['hands']*100):.1f}%" if s["hands"] > 0 else "-",
+            })
+        df_time = pd.DataFrame(time_detail_rows)
+        st.dataframe(df_time, use_container_width=True, hide_index=True)
+else:
+    st.info("暂无时间维度数据，需要手牌时间戳信息。")
