@@ -451,22 +451,74 @@ elif selected_tab == "专项训练":
             unsafe_allow_html=True,
         )
 
+    # --- Player positions overview ---
+    if _hand.players:
+        _pos_rows = []
+        for _seat, _name in sorted(_hand.players.items()):
+            _pos = _hand.positions.get(_seat)
+            _pos_str = _pos.value if _pos else "?"
+            _stack = _hand.stacks.get(_seat, 0)
+            _is_hero = _seat == _hand.hero_seat
+            _hero_marker = " 👈 你" if _is_hero else ""
+            _bg = "rgba(46,204,113,0.15)" if _is_hero else "rgba(255,255,255,0.02)"
+            _border = "#2ecc71" if _is_hero else "#333"
+            _pos_rows.append(
+                f'<div style="display:flex;align-items:center;gap:12px;padding:6px 10px;'
+                f'background:{_bg};border:1px solid {_border};border-radius:6px;">'
+                f'<span style="color:#aaa;font-size:0.8em;min-width:40px;">座位{_seat}</span>'
+                f'<span style="color:#f1c40f;font-size:0.8em;min-width:50px;">{_pos_str}</span>'
+                f'<span style="color:#eee;font-weight:{600 if _is_hero else 400};">{_name}</span>'
+                f'<span style="color:#aaa;font-size:0.85em;margin-left:auto;">'
+                f'${_stack:.0f}</span>'
+                f'<span style="color:#2ecc71;font-size:0.85em;">{_hero_marker}</span>'
+                f'</div>')
+        st.markdown(
+            f'<div style="padding:12px 16px;margin-bottom:14px;background:rgba(255,255,255,0.02);'
+            f'border:1px solid #333;border-radius:8px;">'
+            f'<div style="color:#aaa;font-size:0.8em;margin-bottom:10px;">🎪 玩家位置</div>'
+            f'<div style="display:flex;flex-direction:column;gap:6px;">'
+            f'{"".join(_pos_rows)}'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     # --- Action timeline ---
     _street_colors = {
         "PREFLOP": "#9b59b6", "FLOP": "#3498db",
         "TURN": "#e67e22", "RIVER": "#e74c3c",
     }
-    _actions_before = [a for a in _hand.actions[:scenario.decision_index]
-                       if a.action_type.value != "post_blind"]
+
+    # Calculate cumulative bets per street for proper display
+    # Poker Now logs use cumulative amounts, we store incremental - need to reconstruct
+    _actions_before = []
+    _cumulative_bets = {}  # seat -> total for current street
+    _current_street = None
+
+    for a in _hand.actions[:scenario.decision_index]:
+        if a.action_type.value == "post_blind":
+            continue
+        # Reset cumulative when street changes
+        if a.street != _current_street:
+            _current_street = a.street
+            _cumulative_bets = {}
+        # For display: show cumulative if call/raise, else incremental
+        if a.action_type.value in ("call", "raise", "bet"):
+            _cumulative_bets[a.seat] = _cumulative_bets.get(a.seat, 0.0) + a.amount
+            _display_amt = _cumulative_bets[a.seat]
+        else:
+            _display_amt = a.amount
+        _actions_before.append((a, _display_amt))
+
     if _actions_before:
         _action_rows = []
-        for a in _actions_before:
+        for a, _display_amt in _actions_before:
             _sname = a.street.value.upper()
             _sclr = _street_colors.get(_sname, "#888")
             _pname = "你" if a.seat == _hand.hero_seat else a.player_name
             _is_hero = a.seat == _hand.hero_seat
             _name_style = "color:#2ecc71;font-weight:bold;" if _is_hero else "color:#eee;"
-            _amt = f' <span style="color:#f1c40f;">${a.amount:.0f}</span>' if a.amount > 0 else ""
+            _amt = f' <span style="color:#f1c40f;">${_display_amt:.0f}</span>' if _display_amt > 0 else ""
             _action_rows.append(
                 f'<div style="display:flex;align-items:center;gap:10px;padding:4px 0;">'
                 f'<span style="background:{_sclr};color:#fff;padding:1px 8px;border-radius:8px;'
