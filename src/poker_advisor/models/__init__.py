@@ -5,6 +5,10 @@ from poker_advisor.models.action import ActionType, Street, PlayerAction
 from poker_advisor.models.position import Position
 from poker_advisor.models.hand import HandRecord
 from poker_advisor.models.stats import PlayerStats, PositionalStats
+from poker_advisor.models.simulation import (
+    GamePhase, PlayStyle, AgentLevel,
+    AgentConfig, SimulationConfig, PlayerState, GameState
+)
 
 __all__ = [
     "Card", "Rank", "Suit",
@@ -12,4 +16,6 @@ __all__ = [
     "Position",
     "HandRecord",
     "PlayerStats", "PositionalStats",
+    "GamePhase", "PlayStyle", "AgentLevel",
+    "AgentConfig", "SimulationConfig", "PlayerState", "GameState",
 ]

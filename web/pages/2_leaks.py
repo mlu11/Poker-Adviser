@@ -50,29 +50,67 @@ if not leaks:
     st.success("未检测到明显漏洞。继续保持扎实的打法！")
     st.stop()
 
-st.subheader(f"发现 {len(leaks)} 个问题")
+# Filter controls
+filter_col1, filter_col2 = st.columns([1, 1])
+with filter_col1:
+    severity_filter = sac.segmented(
+        items=[
+            sac.SegmentedItem(label="全部"),
+            sac.SegmentedItem(label="S/A级"),
+            sac.SegmentedItem(label="S级"),
+            sac.SegmentedItem(label="A级"),
+            sac.SegmentedItem(label="B级"),
+            sac.SegmentedItem(label="C级"),
+        ],
+        color="green",
+        index=1,
+        key="severity_filter"
+    )
+with filter_col2:
+    show_top = st.checkbox("仅显示Top 5关键问题", value=False)
+
+# Apply filters
+filtered_leaks = leaks
+if severity_filter == "S/A级":
+    filtered_leaks = [l for l in leaks if l.severity in (Severity.S, Severity.A)]
+elif severity_filter == "S级":
+    filtered_leaks = [l for l in leaks if l.severity == Severity.S]
+elif severity_filter == "A级":
+    filtered_leaks = [l for l in leaks if l.severity == Severity.A]
+elif severity_filter == "B级":
+    filtered_leaks = [l for l in leaks if l.severity == Severity.B]
+elif severity_filter == "C级":
+    filtered_leaks = [l for l in leaks if l.severity == Severity.C]
+
+if show_top:
+    filtered_leaks = filtered_leaks[:5]
+
+st.subheader(f"显示 {len(filtered_leaks)}/{len(leaks)} 个问题")
 
 severity_colors = {
-    Severity.MAJOR: "🔴",
-    Severity.MODERATE: "🟡",
-    Severity.MINOR: "🔵",
+    Severity.S: "🔴",
+    Severity.A: "🟡",
+    Severity.B: "🟢",
+    Severity.C: "🔵",
 }
 severity_labels = {
-    Severity.MAJOR: "严重",
-    Severity.MODERATE: "中等",
-    Severity.MINOR: "轻微",
+    Severity.S: "严重 (S)",
+    Severity.A: "重要 (A)",
+    Severity.B: "一般 (B)",
+    Severity.C: "轻微 (C)",
 }
 severity_badge_variant = {
-    Severity.MAJOR: "destructive",
-    Severity.MODERATE: "default",
-    Severity.MINOR: "secondary",
+    Severity.S: "destructive",
+    Severity.A: "default",
+    Severity.B: "secondary",
+    Severity.C: "outline",
 }
 
-for i, leak in enumerate(leaks, 1):
+for i, leak in enumerate(filtered_leaks, 1):
     icon = severity_colors[leak.severity]
     label = severity_labels[leak.severity]
 
-    with st.expander(f"{icon} {leak.description}", expanded=(leak.severity == Severity.MAJOR)):
+    with st.expander(f"{icon} {leak.description}", expanded=(leak.severity == Severity.S or leak.severity == Severity.A)):
         bcol, mcol = st.columns([1, 3])
         with bcol:
             ui.badges(
@@ -99,27 +137,31 @@ for i, leak in enumerate(leaks, 1):
 
 # --- Summary bar ---
 sac.divider(label="汇总", icon="clipboard-data", color="green")
-c1, c2, c3 = st.columns(3)
-major_count = sum(1 for l in leaks if l.severity == Severity.MAJOR)
-moderate_count = sum(1 for l in leaks if l.severity == Severity.MODERATE)
-minor_count = sum(1 for l in leaks if l.severity == Severity.MINOR)
+c1, c2, c3, c4 = st.columns(4)
+s_count = sum(1 for l in leaks if l.severity == Severity.S)
+a_count = sum(1 for l in leaks if l.severity == Severity.A)
+b_count = sum(1 for l in leaks if l.severity == Severity.B)
+c_count = sum(1 for l in leaks if l.severity == Severity.C)
 
 with c1:
-    ui.metric_card(title="严重", content=str(major_count),
-                   description="需要立即改进", key="sum_major")
+    ui.metric_card(title="S级", content=str(s_count),
+                   description="需要立即改进", key="sum_s")
 with c2:
-    ui.metric_card(title="中等", content=str(moderate_count),
-                   description="建议关注", key="sum_moderate")
+    ui.metric_card(title="A级", content=str(a_count),
+                   description="建议关注", key="sum_a")
 with c3:
-    ui.metric_card(title="轻微", content=str(minor_count),
-                   description="可优化", key="sum_minor")
+    ui.metric_card(title="B级", content=str(b_count),
+                   description="可优化", key="sum_b")
+with c4:
+    ui.metric_card(title="C级", content=str(c_count),
+                   description="轻微问题", key="sum_c")
 
 # --- Chart 1: Severity distribution (Donut chart) ---
 sac.divider(label="漏洞分布", icon="pie-chart", color="green")
 
-severity_counts = [major_count, moderate_count, minor_count]
-severity_names = ["严重 (MAJOR)", "中等 (MODERATE)", "轻微 (MINOR)"]
-severity_chart_colors = [COLORS["accent_red"], COLORS["accent_gold"], COLORS["accent_blue"]]
+severity_counts = [s_count, a_count, b_count, c_count]
+severity_names = ["S级 (严重)", "A级 (重要)", "B级 (一般)", "C级 (轻微)"]
+severity_chart_colors = [COLORS["accent_red"], COLORS["accent_gold"], COLORS["accent_green"], COLORS["accent_blue"]]
 
 fig_donut = go.Figure(data=[go.Pie(
     labels=severity_names,
@@ -161,10 +203,12 @@ fig_compare.add_trace(go.Bar(
 # Actual values as diamond markers
 severity_marker_colors = []
 for l in leaks:
-    if l.severity == Severity.MAJOR:
+    if l.severity == Severity.S:
         severity_marker_colors.append(COLORS["accent_red"])
-    elif l.severity == Severity.MODERATE:
+    elif l.severity == Severity.A:
         severity_marker_colors.append(COLORS["accent_gold"])
+    elif l.severity == Severity.B:
+        severity_marker_colors.append(COLORS["accent_green"])
     else:
         severity_marker_colors.append(COLORS["accent_blue"])
 

@@ -266,7 +266,7 @@ ability_metrics = [
     ("3-Bet频率", "three_bet", stats.overall.three_bet_pct, overall_baseline.get("three_bet_pct", [6, 10])),
     ("翻后攻击性", "af", stats.overall.aggression_factor * 20, [40, 80]),  # Scale AF to 0-100
     ("持续下注", "cbet", stats.overall.cbet_pct, overall_baseline.get("cbet_pct", [55, 75])),
-    ("面对C-Bet弃牌", "fold_to_cbet", stats.overall.folded_to_cbet_pct, overall_baseline.get("fold_to_cbet", [35, 55])),
+    ("面对C-Bet弃牌", "fold_to_cbet", stats.overall.fold_to_cbet_pct, overall_baseline.get("fold_to_cbet", [35, 55])),
     ("摊牌率", "wtsd", stats.overall.wtsd, overall_baseline.get("wtsd", [25, 35])),
     ("摊牌胜率", "wsd", stats.overall.wsd, overall_baseline.get("wsd", [48, 56])),
 ]
@@ -438,23 +438,30 @@ if len(daily_stats) > 0:
         yaxis="y2",
     ))
 
+    # Create layout without conflicting yaxis or legend
     fig_time.update_layout(
-        **PLOTLY_LAYOUT,
+        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ['yaxis', 'xaxis', 'legend']},
         height=400,
         title="时间维度收益分析",
-        xaxis_title="日期",
+        xaxis=dict(
+            title="日期",
+            gridcolor=COLORS["card_border"],
+            zerolinecolor=COLORS["card_border"],
+        ),
         yaxis=dict(
             title="单日收益 ($)",
             side="left",
             gridcolor=COLORS["card_border"],
+            zerolinecolor=COLORS["card_border"],
         ),
         yaxis2=dict(
             title="累计收益 ($)",
             side="right",
             overlaying="y",
             gridcolor=COLORS["card_border"],
+            zerolinecolor=COLORS["card_border"],
         ),
-        legend=dict(x=0, y=1.1, orientation="h"),
+        legend=dict(x=0, y=1.1, orientation="h", bgcolor="rgba(0,0,0,0)", font=dict(color=COLORS["text_secondary"])),
     )
     st.plotly_chart(fig_time, width="stretch")
 

@@ -46,13 +46,14 @@ if selected_tab == "我的训练方案":
     st.subheader("📋 个性化训练方案")
 
     sessions = repo.get_sessions()
-    session_options = {"请选择会话": None}
+    session_options = {}
     for s in sessions:
         label = f"{s['filename']} ({s['hand_count']} hands, {s['id']})"
         session_options[label] = s["id"]
 
-    selected = st.selectbox("选择会话以生成训练方案", options=list(session_options.keys()))
-    session_id = session_options[selected]
+    # Default select first session if available
+    selected = st.selectbox("选择会话以生成训练方案", options=list(session_options.keys())) if session_options else None
+    session_id = session_options[selected] if selected else None
 
     if st.button("生成训练方案", type="primary"):
         if session_id is None:

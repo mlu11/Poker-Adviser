@@ -86,9 +86,16 @@ class ActionValidator:
     ) -> Tuple[bool, str, float]:
         """Validate an action and adjust the amount if needed.
 
+        Amount Semantics (IMPORTANT):
+        - FOLD/CHECK: amount ignored (0)
+        - CALL: amount = INCREMENT needed (to_call), but returns TOTAL (current_bet + to_call)
+        - BET: amount = TOTAL bet (from 0)
+        - RAISE: amount = TOTAL bet (player.current_bet + to_call + raise_increment)
+        - ALL_IN: amount = TOTAL bet (player.current_bet + player.stack)
+
         Args:
             action_type: The action type to validate.
-            amount: The proposed amount.
+            amount: The proposed amount (see semantics above).
             player: The player making the action.
             current_bet: The current bet to call.
             min_raise: The minimum raise amount.
@@ -96,6 +103,7 @@ class ActionValidator:
 
         Returns:
             Tuple of (is_valid, error_message, adjusted_amount).
+            adjusted_amount is ALWAYS the TOTAL amount the player will have in the pot after this action.
         """
         player_bet = player.current_bet
         to_call = current_bet - player_bet
@@ -112,9 +120,10 @@ class ActionValidator:
             if to_call <= 0:
                 return False, "Nothing to call", 0.0
             if player.stack < to_call:
-                # Call all-in
-                return True, "", player.stack
-            return True, "", to_call
+                # Call all-in - return total bet (current + stack)
+                return True, "", player_bet + player.stack
+            # Return total bet (current + to_call)
+            return True, "", player_bet + to_call
 
         if action_type == ActionType.BET:
             if to_call != 0:
@@ -135,18 +144,19 @@ class ActionValidator:
 
             total_needed = to_call + min_raise
             if player.stack < to_call:
-                # Just call all-in
-                return True, "", player.stack
+                # Just call all-in - return total bet (current + stack)
+                return True, "", player_bet + player.stack
             if player.stack < total_needed:
-                # Raise all-in
-                return True, "", player.stack
+                # Raise all-in - return total bet (current + stack)
+                return True, "", player_bet + player.stack
 
             raise_amount = max(to_call + min_raise, amount)
             raise_amount = min(raise_amount, player.stack + player_bet)
             return True, "", raise_amount
 
         if action_type == ActionType.ALL_IN:
-            return True, "", player.stack + player_bet
+            # ALL_IN returns total bet (current + stack)
+            return True, "", player_bet + player.stack
 
         return False, "Unknown action type", 0.0
 
@@ -160,6 +170,11 @@ class StreetState:
     last_aggressor: Optional[int] = None
     action_count: int = 0
     completed: bool = False
+    acted_seats: Set[int] = None
+
+    def __post_init__(self):
+        if self.acted_seats is None:
+            self.acted_seats = set()
 
 
 class SimulationEngine:
@@ -252,6 +267,7 @@ class SimulationEngine:
             street=Street.PREFLOP,
             current_bet=self.config.big_blind,
             min_raise=self.config.big_blind,
+            acted_seats=set(),
         )
 
         # Set initial player to act (UTG)
@@ -381,6 +397,10 @@ class SimulationEngine:
         if player.stack <= 0:
             player.is_all_in = True
 
+        # Mark as having acted if street state exists
+        if self.street_state:
+            self.street_state.acted_seats.add(seat)
+
     def _next_seat(self, seat: int) -> int:
         """Get the next active seat after the given seat."""
         all_seats = sorted(self._get_all_seats())
@@ -400,19 +420,42 @@ class SimulationEngine:
         players: Dict[int, PlayerState],
     ) -> Optional[int]:
         """Find the next player who needs to act."""
-        start_seat = current_seat
-        seat = self._next_seat(start_seat)
+        # First check if street is already complete
+        if self._is_street_complete():
+            return None
 
-        while seat != start_seat:
+        # Get all active, non-all-in seats in order
+        all_seats = sorted(self._get_all_seats())
+        if not all_seats:
+            return None
+
+        # Find starting index
+        try:
+            start_idx = all_seats.index(current_seat)
+        except ValueError:
+            start_idx = 0
+
+        # Search for next player that needs to act
+        num_players = len(all_seats)
+        for i in range(1, num_players + 1):
+            idx = (start_idx + i) % num_players
+            seat = all_seats[idx]
             player = players.get(seat)
+
             if player and not player.is_folded and not player.is_all_in:
-                # Check if player needs to act
+                # Player needs to act if they haven't matched the current bet
                 if player.current_bet < self.street_state.current_bet:
                     return seat
-                if self.street_state.action_count < len(players):
-                    # Check if player hasn't acted yet this street
-                    return seat
-            seat = self._next_seat(seat)
+
+        # If everyone has matched, check if street is actually complete
+        if self._is_street_complete():
+            return None
+
+        # Fallback: find first active non-all-in player
+        for seat in all_seats:
+            player = players.get(seat)
+            if player and not player.is_folded and not player.is_all_in:
+                return seat
 
         return None
 
@@ -483,7 +526,8 @@ class SimulationEngine:
 
         elif action_type in (ActionType.CALL, ActionType.BET, ActionType.RAISE, ActionType.ALL_IN):
             previous_bet = player.current_bet
-            increment = amount - previous_bet
+            # Amount is total bet (already validated)
+            increment = max(0.0, amount - previous_bet)
 
             # Take from player's stack
             player.stack -= increment
@@ -502,7 +546,6 @@ class SimulationEngine:
                     self.street_state.last_aggressor = seat
 
             # Log
-            action_str = action_type.value
             if action_type == ActionType.CALL:
                 self._add_action_log(f"{player.name} calls ${increment:.0f}")
             elif action_type == ActionType.BET:
@@ -530,23 +573,28 @@ class SimulationEngine:
             agent.record_action(action_type, is_voluntary)
 
         self.street_state.action_count += 1
+        self.street_state.acted_seats.add(seat)
 
     def _is_street_complete(self) -> bool:
         """Check if the current street is complete."""
-        if not self.game_state:
+        if not self.game_state or not self.street_state:
             return True
 
         players = self.game_state.players
         active = [p for p in players.values() if not p.is_folded]
+        active_not_allin = [p for p in active if not p.is_all_in]
+        active_seats = {s for s, p in players.items() if not p.is_folded and not p.is_all_in}
 
         if len(active) <= 1:
             return True
 
-        # Check if all active players have matched the bet or are all-in
+        # If everyone is all-in, street is complete
+        if len(active_not_allin) == 0:
+            return True
+
+        # Check if all active, non-all-in players have matched the bet
         all_matched = True
-        for player in active:
-            if player.is_all_in:
-                continue
+        for player in active_not_allin:
             if player.current_bet < self.street_state.current_bet:
                 all_matched = False
                 break
@@ -554,8 +602,20 @@ class SimulationEngine:
         if not all_matched:
             return False
 
-        # Need at least one complete round of betting
-        return self.street_state.action_count >= len(active)
+        # Check if all active non-all-in players have acted at least once
+        # OR if the current bet is still at the minimum and everyone has acted
+        all_acted = active_seats.issubset(self.street_state.acted_seats)
+
+        # Special case for preflop: blinds count as bets, so after blinds, UTG acts first
+        # Everyone needs to have a chance to respond to the current bet
+        if self.street_state.last_aggressor is not None:
+            # If there was an aggressor, check if everyone else has acted
+            # For simplicity, if all_matched is True and we've had at least len(active) actions,
+            # the street is complete
+            return all_matched and (all_acted or self.street_state.action_count >= len(active))
+
+        # No aggressor - everyone has checked
+        return all_matched and all_acted
 
     def _complete_street(self):
         """Complete the current street and move to the next."""
@@ -623,6 +683,7 @@ class SimulationEngine:
             street=next_street,
             current_bet=0.0,
             min_raise=self.config.big_blind,
+            acted_seats=set(),
         )
 
         # First to act is SB (or first after dealer)

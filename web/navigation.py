@@ -7,10 +7,12 @@ from streamlit_option_menu import option_menu
 MENU_ITEMS = [
     ("首页", "house-fill", "app"),
     ("数据分析", "bar-chart-line-fill", "1_stats"),
+    ("漏洞检测", "search", "2_leaks"),
     ("复盘中心", "clock-history", "3_ai_analysis"),
     ("训练中心", "bullseye", "4_training"),
     ("手牌历史", "journal-text", "5_hands"),
     ("数据管理", "database-gear", "6_management"),
+    ("牌局模拟", "controller", "7_simulation"),
 ]
 
 # Menu with sub-items for reference (future expansion)

@@ -138,22 +138,50 @@ class PokerNowParser:
         if pending_show_lines and last_completed_hand is not None:
             self._apply_show_lines(last_completed_hand, pending_show_lines)
 
-        # Second pass: propagate hero identity to hands where hero_seat is unknown.
-        # Some hands identify the hero via showdown; use that name for all hands.
+        # Second pass: identify hero identity
+        # Strategy 1: Find hero from showdown (original logic)
         hero_name = None
         for h in hands:
             if h.hero_name:
                 hero_name = h.hero_name
                 break
 
+        # Strategy 2: If no showdown hero, identify by "Your hand is" presence
+        # Hero must be present in all hands that have "Your hand is"
+        if not hero_name:
+            # Collect all player names that appear in hands with hero_cards
+            from collections import defaultdict
+            player_in_hero_hands = defaultdict(int)
+            hero_hands_count = 0
+
+            for h in hands:
+                if h.hero_cards:  # This hand has "Your hand is"
+                    hero_hands_count += 1
+                    for name in h.players.values():
+                        player_in_hero_hands[name] += 1
+
+            # Find the player that appears in all (or most) hero hands
+            if hero_hands_count > 0:
+                best_player = None
+                best_count = 0
+                for name, count in player_in_hero_hands.items():
+                    if count > best_count:
+                        best_count = count
+                        best_player = name
+                if best_player:
+                    hero_name = best_player
+
+        # Apply hero identity to all hands
         if hero_name:
             for h in hands:
-                if h.hero_cards and h.hero_seat is None:
-                    for seat, name in h.players.items():
-                        if name == hero_name:
-                            h.hero_seat = seat
-                            h.hero_name = hero_name
-                            break
+                # Set hero_seat and hero_name if this player is in the hand
+                for seat, name in h.players.items():
+                    if name == hero_name:
+                        h.hero_seat = seat
+                        h.hero_name = hero_name
+                        # If we have hero_cards but they haven't been set, or to verify
+                        # Note: hero_cards should already be set from "Your hand is" line
+                        break
 
         return hands
 

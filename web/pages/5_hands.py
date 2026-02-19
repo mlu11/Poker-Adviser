@@ -75,12 +75,20 @@ if selected_tab == "手牌列表":
 
     df = pd.DataFrame(rows)
 
+    # Ensure dataframe has data and reset index to prevent AgGrid issues
+    if not df.empty:
+        df = df.reset_index(drop=True)
+
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_default_column(sortable=True, filterable=True, resizable=True)
     gb.configure_selection("single", use_checkbox=False)
     gb.configure_column("Hand ID", width=90, pinned="left")
     gb.configure_column("底池", type=["numericColumn"], width=90)
+
+    # Additional options to prevent "No Rows To Show"
     grid_opts = gb.build()
+    grid_opts['suppressNoRowsOverlay'] = True  # Hide the overlay
+    grid_opts['animateRows'] = False
 
     grid_response = AgGrid(
         df,
@@ -89,6 +97,9 @@ if selected_tab == "手牌列表":
         height=420,
         fit_columns_on_grid_load=True,
         key="hands_grid",
+        enable_enterprise_modules=False,
+        data_return_mode='AS_INPUT',
+        update_mode='MODEL_CHANGED',
     )
 
     # Hand detail via row selection

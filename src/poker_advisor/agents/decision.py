@@ -184,7 +184,7 @@ class DecisionEngine:
         decision = self._select_action(
             score, category, can_check, call_amount,
             min_raise, max_raise, pot_before_action,
-            is_preflop, pot_odds
+            is_preflop, pot_odds, player.current_bet
         )
 
         return decision
@@ -246,9 +246,15 @@ class DecisionEngine:
         max_raise: float,
         pot: float,
         is_preflop: bool,
-        pot_odds: float
+        pot_odds: float,
+        player_current_bet: float = 0.0
     ) -> Decision:
-        """Select an action based on hand strength and style."""
+        """Select an action based on hand strength and style.
+
+        Args:
+            player_current_bet: The amount the player already has in the pot.
+                This is needed to calculate the TOTAL bet amount for raises.
+        """
         # Base aggression from style
         af = self.style_config.sample_af()
 
@@ -284,8 +290,10 @@ class DecisionEngine:
                 # Consider bluffing with some probability
                 bluff_chance = 0.05 if af > 2.5 else 0.02
                 if random.random() < bluff_chance and max_raise >= min_raise:
-                    raise_amount = self._calculate_raise_size(pot, min_raise, max_raise)
-                    return Decision(DecisionType.RAISE, raise_amount, "Bluff raise")
+                    # Bluff raise - calculate total amount including current bet
+                    raise_increment = self._calculate_raise_size(pot, min_raise, max_raise - player_current_bet - call_amount)
+                    total_raise = player_current_bet + call_amount + raise_increment
+                    return Decision(DecisionType.RAISE, total_raise, "Bluff raise")
                 return Decision(DecisionType.FOLD, 0.0, "Folding weak hand")
 
         elif adjusted_score < raise_threshold:
@@ -307,10 +315,13 @@ class DecisionEngine:
                 # Value bet
                 bet_size = self._calculate_bet_size(pot, min_raise, max_raise)
                 return Decision(DecisionType.BET, bet_size, "Value betting strong hand")
-            elif max_raise >= min_raise + call_amount:
-                # Raise
-                raise_amount = self._calculate_raise_size(pot + call_amount, min_raise, max_raise - call_amount)
-                return Decision(DecisionType.RAISE, call_amount + raise_amount, "Raising with strong hand")
+            elif max_raise >= min_raise + call_amount + player_current_bet:
+                # Raise - return TOTAL amount (player_current_bet + call_amount + raise_increment)
+                # max_raise is player.stack + player_current_bet (from engine.py)
+                available_for_raise = max_raise - player_current_bet - call_amount
+                raise_increment = self._calculate_raise_size(pot + call_amount, min_raise, available_for_raise)
+                total_raise = player_current_bet + call_amount + raise_increment
+                return Decision(DecisionType.RAISE, total_raise, "Raising with strong hand")
             elif call_amount > 0:
                 return Decision(DecisionType.CALL, call_amount, "Calling with strong hand")
             else:

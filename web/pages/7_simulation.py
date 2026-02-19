@@ -4,6 +4,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import streamlit as st
+import subprocess
 import streamlit_shadcn_ui as ui
 import streamlit_antd_components as sac
 import time
@@ -19,6 +20,28 @@ from poker_advisor.agents.factory import AgentFactory
 
 from theme import inject_theme, PLOTLY_LAYOUT, COLORS
 from navigation import render_sidebar_nav
+
+
+# --- Notification helper functions ---
+def send_macos_notification(title: str, message: str, subtitle: str = ""):
+    """Send a macOS system notification."""
+    try:
+        script = f'display notification "{message}" with title "{title}"'
+        if subtitle:
+            script = f'display notification "{message}" with title "{title}" subtitle "{subtitle}"'
+        subprocess.run(
+            ["osascript", "-e", script],
+            check=True,
+            capture_output=True
+        )
+        return True
+    except Exception:
+        return False
+
+
+# Track last notification time to avoid spamming
+LAST_NOTIFICATION_KEY = "last_hero_notification_time"
+NOTIFICATION_COOLDOWN = 5  # seconds
 
 st.set_page_config(page_title="牌局模拟", page_icon="🎰", layout="wide")
 inject_theme()
@@ -213,108 +236,156 @@ elif selected_tab == "实时对战":
         if state is None:
             st.info("点击「新发一手」开始游戏。")
         else:
-            # Game info header
-            col_info1, col_info2, col_info3, col_info4 = st.columns(4)
-            with col_info1:
-                ui.metric_card(
-                    title="牌局 #",
-                    content=str(state.hand_number),
-                    description="当前手牌",
-                    key="hand_num"
-                )
-            with col_info2:
-                phase_labels = {
-                    GamePhase.WAITING: "等待中",
-                    GamePhase.PREFLOP: "翻前",
-                    GamePhase.FLOP: "翻牌",
-                    GamePhase.TURN: "转牌",
-                    GamePhase.RIVER: "河牌",
-                    GamePhase.SHOWDOWN: "摊牌",
-                    GamePhase.COMPLETE: "完成",
-                }
-                ui.metric_card(
-                    title="阶段",
-                    content=phase_labels.get(state.phase, state.phase.value),
-                    description="游戏阶段",
-                    key="game_phase"
-                )
-            with col_info3:
-                ui.metric_card(
-                    title="底池",
-                    content=f"${state.pot:.0f}",
-                    description="总底池",
-                    key="pot_size"
-                )
-            with col_info4:
-                hero = state.hero
-                if hero:
+            # --- Two-column layout ---
+            col_left, col_right = st.columns([4, 6])
+
+            with col_left:
+                # Game info header
+                col_info1, col_info2 = st.columns(2)
+                with col_info1:
                     ui.metric_card(
-                        title="Hero 筹码",
-                        content=f"${hero.stack:.0f}",
-                        description="当前筹码",
-                        key="hero_stack"
+                        title="牌局 #",
+                        content=str(state.hand_number),
+                        description="当前手牌",
+                        key="hand_num"
+                    )
+                with col_info2:
+                    phase_labels = {
+                        GamePhase.WAITING: "等待中",
+                        GamePhase.PREFLOP: "翻前",
+                        GamePhase.FLOP: "翻牌",
+                        GamePhase.TURN: "转牌",
+                        GamePhase.RIVER: "河牌",
+                        GamePhase.SHOWDOWN: "摊牌",
+                        GamePhase.COMPLETE: "完成",
+                    }
+                    ui.metric_card(
+                        title="阶段",
+                        content=phase_labels.get(state.phase, state.phase.value),
+                        description="游戏阶段",
+                        key="game_phase"
                     )
 
-            st.markdown("---")
+                col_info3, col_info4 = st.columns(2)
+                with col_info3:
+                    ui.metric_card(
+                        title="底池",
+                        content=f"${state.pot:.0f}",
+                        description="总底池",
+                        key="pot_size"
+                    )
+                with col_info4:
+                    hero = state.hero
+                    if hero:
+                        ui.metric_card(
+                            title="Hero 筹码",
+                            content=f"${hero.stack:.0f}",
+                            description="当前筹码",
+                            key="hero_stack"
+                        )
 
-            # --- Poker table visualization ---
-            # Helper for card display
-            def card_html(card, hidden=False):
-                if hidden:
-                    return '<span style="display:inline-block;background:#333;border:2px solid #555;border-radius:8px;padding:10px 14px;margin:2px;font-weight:bold;color:#666;font-family:monospace;font-size:1.1em;">?</span>'
-                rank = card.rank.value
-                suit = card.suit.symbol
-                color = COLORS["accent_red"] if card.suit.value in ("h", "d") else COLORS["text_primary"]
-                return f'<span style="display:inline-block;background:#222;border:2px solid #444;border-radius:8px;padding:10px 14px;margin:2px;font-weight:bold;color:{color};font-family:monospace;font-size:1.1em;">{rank}{suit}</span>'
+                st.markdown("---")
 
-            # CSS styles first - single line to prevent Markdown code formatting
-            st.markdown('<style>.player-seat{background:rgba(255,255,255,0.05);border:1px solid #333;border-radius:12px;padding:12px 16px;margin:8px 0;}.player-seat.hero{border-color:#2ecc71;background:rgba(46,204,113,0.1);}.player-seat.current{border-color:#f1c40f;box-shadow:0 0 10px rgba(241,196,15,0.3);}.player-seat.folded{opacity:0.5;}</style>', unsafe_allow_html=True)
+                # --- Poker table visualization ---
+                # Helper for card display
+                def card_html(card=None, hidden=False):
+                    if hidden or card is None:
+                        return '<span style="display:inline-block;background:#333;border:2px solid #555;border-radius:8px;padding:10px 14px;margin:2px;font-weight:bold;color:#666;font-family:monospace;font-size:1.1em;">?</span>'
+                    rank = card.rank.value
+                    suit = card.suit.symbol
+                    color = COLORS["accent_red"] if card.suit.value in ("h", "d") else COLORS["text_primary"]
+                    return f'<span style="display:inline-block;background:#222;border:2px solid #444;border-radius:8px;padding:10px 14px;margin:2px;font-weight:bold;color:{color};font-family:monospace;font-size:1.1em;">{rank}{suit}</span>'
 
-            # Community cards - single complete HTML block
-            if state.community_cards:
-                cards_html = "".join(card_html(c) for c in state.community_cards)
-                st.markdown(f'<div style="text-align:center;margin-bottom:24px;"><div style="font-size:0.9em;color:#aaa;margin-bottom:8px;">公共牌</div><div>{cards_html}</div></div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div style="text-align:center;margin-bottom:24px;"><div style="font-size:0.9em;color:#aaa;margin-bottom:8px;">公共牌</div><div style="color:#666;">-</div></div>', unsafe_allow_html=True)
+                # CSS styles
+                st.markdown("""
+                <style>
+                .player-seat{background:rgba(255,255,255,0.05);border:1px solid #333;border-radius:12px;padding:12px 16px;margin:8px 0;}
+                .player-seat.hero{border-color:#2ecc71;background:rgba(46,204,113,0.1);}
+                .player-seat.current{border-color:#f1c40f;box-shadow:0 0 10px rgba(241,196,15,0.3);}
+                .player-seat.folded{opacity:0.5;}
+                .game-area{background:rgba(0,0,0,0.2);border-radius:16px;padding:20px;text-align:center;}
+                </style>
+                """, unsafe_allow_html=True)
 
-            # Display each player as a separate, complete HTML block
-            for seat in sorted(state.players.keys()):
-                player = state.players[seat]
-                is_current = seat == state.current_player_seat
-                is_hero = player.is_hero
+                # Community cards in a nice game area
+                st.markdown('<div class="game-area">', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:1em;color:#aaa;margin-bottom:12px;">🃏 公共牌</div>', unsafe_allow_html=True)
+                if state.community_cards:
+                    cards_html = "".join(card_html(c) for c in state.community_cards)
+                    st.markdown(f'<div style="font-size:1.2em;">{cards_html}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div style="color:#666;font-size:1.1em;">-</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                classes = ["player-seat"]
-                if is_hero:
-                    classes.append("hero")
-                if is_current:
-                    classes.append("current")
-                if player.is_folded:
-                    classes.append("folded")
+                st.markdown("---")
 
-                pos_str = player.position.value if player.position else "?"
-                style_badge = ""
-                if player.agent_config:
-                    style_str = player.agent_config.style.value
-                    style_badge = f'<span style="background:#555;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">{style_str}</span>'
+                # --- Action log in left column ---
+                with st.expander("📜 行动记录", expanded=True):
+                    for msg in state.action_history[-10:]:
+                        st.text(msg)
 
-                cards_display = ""
-                if player.cards:
-                    if is_hero or state.phase == GamePhase.COMPLETE:
-                        cards_display = "".join(card_html(c) for c in player.cards)
-                    else:
-                        cards_display = "".join(card_html(None, hidden=True) for _ in player.cards)
+            with col_right:
+                st.markdown("### 👥 玩家")
 
-                status_badge = ""
-                if player.is_folded:
-                    status_badge = '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">已弃牌</span>'
-                if player.is_all_in:
-                    status_badge = '<span style="background:#f39c12;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">ALL-IN</span>'
-                if is_current:
-                    status_badge = '<span style="background:#f1c40f;color:#000;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">思考中...</span>'
+                # Display each player as a separate, complete HTML block
+                for seat in sorted(state.players.keys()):
+                    player = state.players[seat]
+                    is_current = seat == state.current_player_seat
+                    is_hero = player.is_hero
 
-                # Each player is a complete, self-contained HTML div - no newlines to prevent Markdown code formatting
-                player_html = f'<div class="{" ".join(classes)}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div><span style="font-weight:bold;font-size:1.1em;">{player.name}</span>{style_badge}{status_badge}</div><div style="text-align:right;"><span style="color:#aaa;font-size:0.8em;">座位 {seat} · {pos_str}</span></div></div><div style="display:flex;justify-content:space-between;align-items:center;"><div>{cards_display}</div><div style="text-align:right;"><div style="color:#f1c40f;font-weight:bold;">💰 ${player.stack:.0f}</div><div style="color:#aaa;font-size:0.8em;">投入: ${player.total_invested:.0f}</div></div></div></div>'
-                st.markdown(player_html, unsafe_allow_html=True)
+                    classes = ["player-seat"]
+                    if is_hero:
+                        classes.append("hero")
+                    if is_current:
+                        classes.append("current")
+                    if player.is_folded:
+                        classes.append("folded")
+
+                    pos_str = player.position.value if player.position else "?"
+                    style_badge = ""
+                    if player.agent_config:
+                        style_str = player.agent_config.style.value
+                        style_badge = f'<span style="background:#555;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">{style_str}</span>'
+
+                    cards_display = ""
+                    if player.cards:
+                        if is_hero or state.phase == GamePhase.COMPLETE:
+                            cards_display = "".join(card_html(c) for c in player.cards)
+                        else:
+                            cards_display = "".join(card_html(None, hidden=True) for _ in player.cards)
+
+                    status_badge = ""
+                    if player.is_folded:
+                        status_badge = '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">已弃牌</span>'
+                    if player.is_all_in:
+                        status_badge = '<span style="background:#f39c12;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">ALL-IN</span>'
+                    if is_current:
+                        status_badge = '<span style="background:#f1c40f;color:#000;padding:2px 8px;border-radius:10px;font-size:0.7em;margin-left:8px;">思考中...</span>'
+
+                    # Player card with better layout - cards on left, info on right
+                    empty_cards = '<span style="color:#666;">-</span>'
+                    player_html = '<div class="' + ' '.join(classes) + '">'
+                    player_html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                    player_html += '<div>'
+                    player_html += '<span style="font-weight:bold;font-size:1.1em;">' + player.name + '</span>'
+                    player_html += style_badge
+                    player_html += status_badge
+                    player_html += '</div>'
+                    player_html += '<div style="text-align:right;">'
+                    player_html += '<span style="color:#aaa;font-size:0.8em;">座位 ' + str(seat) + ' · ' + pos_str + '</span>'
+                    player_html += '</div>'
+                    player_html += '</div>'
+                    player_html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:20px;">'
+                    player_html += '<div style="flex:1;">'
+                    player_html += cards_display if cards_display else empty_cards
+                    player_html += '</div>'
+                    player_html += '<div style="text-align:right;min-width:100px;">'
+                    player_html += '<div style="color:#f1c40f;font-weight:bold;font-size:1.2em;">💰 $' + f'{player.stack:.0f}' + '</div>'
+                    player_html += '<div style="color:#aaa;font-size:0.85em;">投入: $' + f'{player.total_invested:.0f}' + '</div>'
+                    player_html += '</div>'
+                    player_html += '</div>'
+                    player_html += '</div>'
+                    st.markdown(player_html, unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -322,6 +393,60 @@ elif selected_tab == "实时对战":
             if state.phase != GamePhase.COMPLETE:
                 if engine.is_hero_turn():
                     st.markdown("### 🎯 轮到你行动")
+
+                    # Send macOS system notification (with cooldown)
+                    import time
+                    now = time.time()
+                    last_notification = st.session_state.get(LAST_NOTIFICATION_KEY, 0)
+                    if now - last_notification > NOTIFICATION_COOLDOWN:
+                        send_macos_notification(
+                            "PokerMaster Pro - 轮到你行动！",
+                            "牌局模拟等待你的决策",
+                            f"牌局 #{state.hand_number}"
+                        )
+                        st.session_state[LAST_NOTIFICATION_KEY] = now
+
+                    # Browser notification - request permission and send notification
+                    notification_js = """
+                    <script>
+                    // Request notification permission on page load
+                    function requestNotificationPermission() {
+                        if (!("Notification" in window)) {
+                            console.log("This browser does not support desktop notification");
+                        } else if (Notification.permission === "granted") {
+                            // Permission already granted
+                        } else if (Notification.permission !== "denied") {
+                            Notification.requestPermission();
+                        }
+                    }
+
+                    // Send notification
+                    function sendHeroTurnNotification() {
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            new Notification("PokerMaster Pro - 轮到你行动！", {
+                                body: "牌局模拟等待你的决策",
+                                icon: "🎰"
+                            });
+                        }
+                    }
+
+                    // Request permission when page loads
+                    requestNotificationPermission();
+
+                    // Send notification when it's hero's turn
+                    // We'll use a small timeout to ensure the DOM is ready
+                    setTimeout(function() {
+                        // Check if we haven't sent this notification recently
+                        var lastNotification = sessionStorage.getItem('lastHeroNotification');
+                        var now = Date.now();
+                        if (!lastNotification || (now - lastNotification > 5000)) {
+                            sendHeroTurnNotification();
+                            sessionStorage.setItem('lastHeroNotification', now);
+                        }
+                    }, 500);
+                    </script>
+                    """
+                    st.components.v1.html(notification_js, height=0)
 
                     available_actions = engine.get_available_actions()
 

@@ -1,7 +1,130 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
 # PokerMaster Pro V2
 
 **项目:** 德州扑克AI智能分析训练系统
 **技术栈:** Python + SQLite + Streamlit + Typer + Plotly + Doubao API
+
+---
+
+## 常用命令
+
+### 开发环境
+```bash
+# 安装依赖
+pip install -e ".[dev]"
+
+# 运行 Web UI
+streamlit run web/app.py
+
+# 运行 CLI
+python3 -m cli.main --help
+
+# 导入日志
+python3 -m cli.main import-log your_log.csv
+```
+
+### 测试
+```bash
+# 运行所有测试
+python3 -m pytest tests/ -v
+
+# 运行单个测试文件
+python3 -m pytest tests/test_parser.py -v
+
+# 运行单个测试函数
+python3 -m pytest tests/test_parser.py::test_parse_hand -v
+
+# 显示覆盖率
+python3 -m pytest tests/ --cov=poker_advisor
+```
+
+### 数据库
+```bash
+# 数据库位置
+/Users/apple/Coding/poker-advisor/poker_advisor.db
+
+# 检查数据库
+python3 check_db.py
+```
+
+---
+
+## 高级架构
+
+### 目录结构
+```
+src/poker_advisor/
+  parser/          # Poker Now 日志解析 (pokernow_parser.py, patterns.py)
+  models/          # 数据模型 (hand, action, card, position, stats)
+  analysis/        # 漏洞检测、统计计算、批量复盘
+  storage/         # SQLite 数据库 (schema.sql, repository.py, database.py)
+  ai/              # Doubao API 客户端 + 分析 prompts
+  training/        # 训练方案生成 + 训练会话
+  formatters/      # CLI 输出格式化
+cli/               # Typer CLI (main.py)
+web/               # Streamlit Web UI
+  pages/           # 6个页面 (1_stats.py, 2_leaks.py, ...)
+  app.py           # 首页
+  theme.py         # 暗色主题配置
+  navigation.py    # 侧边栏导航
+config/            # baselines.json, skills.json
+tests/             # pytest 测试
+```
+
+### 数据流
+
+1. **日志导入**: Poker Now CSV → `PokerNowParser.parse_text()` → `HandRecord` 对象列表
+2. **存储**: `HandRepository.save_session()` → SQLite (hands/players/actions/winners 表)
+3. **统计计算**: `StatsCalculator.calculate()` → `Stats` 对象 (overall/positional)
+4. **漏洞检测**: `LeakDetector.detect()` → 对比 `config/baselines.json` → `Leak` 列表
+5. **AI 分析**: `AIClient.analyze_hand()` → Doubao API → `AnalysisResult`
+6. **训练**: `TrainingGenerator.generate_plan()` → `TrainingSession` → 决策场景
+
+### 关键模型关系
+
+```
+HandRecord (手牌)
+  ├─ players: Dict[int, str] (seat → name)
+  ├─ positions: Dict[int, Position] (seat → Position)
+  ├─ stacks: Dict[int, float] (seat → stack)
+  ├─ hero_seat: Optional[int]
+  ├─ hero_cards: List[Card]
+  ├─ hero_name: Optional[str]
+  ├─ flop/turn/river: List[Card]
+  ├─ actions: List[PlayerAction]
+  ├─ shown_cards: Dict[int, List[Card]]
+  ├─ winners: Dict[int, float]
+  └─ uncalled_bets: Dict[int, float]
+
+Stats (统计)
+  ├─ overall: OverallStats (VPIP, PFR, AF, WTSD, etc.)
+  └─ by_position: Dict[Position, PositionalStats]
+
+Leak (漏洞)
+  ├─ description: str
+  ├─ severity: Severity (S/A/B/C)
+  ├─ actual_value: float
+  ├─ baseline_low/high: float
+  └─ advice: str
+```
+
+### Web UI 导航
+
+Streamlit 页面文件名前缀数字决定侧栏排序：
+- `app.py` → 首页
+- `pages/1_stats.py` → 数据分析
+- `pages/2_leaks.py` → 漏洞检测
+- `pages/3_ai_analysis.py` → 复盘中心
+- `pages/4_training.py` → 训练中心
+- `pages/5_hands.py` → 手牌历史
+- `pages/6_management.py` → 数据管理
+
+导航配置在 `web/navigation.py` 的 `MENU_ITEMS` 中。
 
 ---
 
@@ -12,6 +135,7 @@
 - uncalled bet 需要从 total_invested 中扣除，否则底池计算会偏大
 - 金额单位是整数（不需要除以 100），`_parse_amount()` 直接返回 raw 值
 - CSV 日志行按时间倒序排列（最新在前），解析时需要反转
+- **Hero 识别**: 如果日志中有 "Your hand is" 但没有 showdown，parser 通过统计所有 "Your hand is" 手牌中的共同玩家来识别 Hero
 
 ### 数据模型
 - `hand.went_to_showdown` 是手牌级别标志，表示该手牌是否进入了摊牌阶段，**不代表 hero 参与了摊牌**
@@ -26,12 +150,6 @@
 ### Web UI
 - Streamlit 页面文件名前缀数字决定侧栏排序（1_stats.py, 2_leaks.py, ...）
 - `navigation.py` 中的路径映射必须与页面文件名精确对应，否则导航跳转会失败
-
----
-
-## 代码规范
-
-### Web 页面
 - 使用 `streamlit_antd_components as sac` 的 `sac.tabs()` 做 Tab 导航，不使用 `st.tabs()`
 - 所有指标展示用 `ui.metric_card(title, content, description)` (shadcn_ui)
 - 暗色主题：参考 `web/theme.py` 中的 `COLORS` 字典，所有自定义样式需适配暗色背景
@@ -89,25 +207,6 @@
 
 ## 剩余任务
 
-- [ ] 2.4 能力画像雷达图 + 2.6 时间维度分析
+- [ ] 2.4 能力画像雷达图 + 2.6 时间维度分析 ✅ (已完成)
 - [ ] 3.3 对局还原时间线
 - [ ] 5.x GTO策略库、对手分析、下风期预警、知识库、数据导出
-
----
-
-## 项目结构
-
-```
-src/poker_advisor/
-  parser/          # Poker Now 日志解析
-  models/          # 数据模型（hand, action, card, position, stats）
-  analysis/        # 漏洞检测、统计计算、批量复盘
-  storage/         # SQLite 数据库（schema.sql, repository.py）
-  ai/              # Doubao API 客户端 + 分析 prompts
-  training/        # 训练方案生成 + 训练会话
-  formatters/      # CLI 输出格式化
-cli/               # Typer CLI（16 个命令）
-web/               # Streamlit Web UI（6 个页面）
-config/            # baselines.json, skills.json
-tests/             # pytest 测试（6 个测试文件）
-```
