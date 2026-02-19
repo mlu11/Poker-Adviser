@@ -1,0 +1,46 @@
+{
+  "LAG": {
+    "name": "Loose Aggressive",
+    "description": "Plays many hands, bets and raises frequently",
+    "vpip_range": [0.35, 0.50],
+    "pfr_range": [0.25, 0.40],
+    "three_bet_pct": [0.08, 0.15],
+    "af_range": [2.5, 4.0],
+    "cbet_pct": [0.60, 0.70],
+    "fold_to_cbet_pct": [0.30, 0.45],
+    "wtsd_range": [0.30, 0.40]
+  },
+  "LP": {
+    "name": "Loose Passive",
+    "description": "Plays many hands, but calls more than raises",
+    "vpip_range": [0.35, 0.55],
+    "pfr_range": [0.10, 0.20],
+    "three_bet_pct": [0.03, 0.08],
+    "af_range": [1.0, 1.8],
+    "cbet_pct": [0.40, 0.55],
+    "fold_to_cbet_pct": [0.45, 0.60],
+    "wtsd_range": [0.40, 0.55]
+  },
+  "TAG": {
+    "name": "Tight Aggressive",
+    "description": "Plays few hands, but bets and raises when in the pot",
+    "vpip_range": [0.18, 0.28],
+    "pfr_range": [0.14, 0.22],
+    "three_bet_pct": [0.06, 0.12],
+    "af_range": [2.0, 3.5],
+    "cbet_pct": [0.55, 0.70],
+    "fold_to_cbet_pct": [0.40, 0.55],
+    "wtsd_range": [0.25, 0.35]
+  },
+  "TP": {
+    "name": "Tight Passive",
+    "description": "Plays few hands, calls down when in the pot",
+    "vpip_range": [0.14, 0.24],
+    "pfr_range": [0.08, 0.15],
+    "three_bet_pct": [0.02, 0.06],
+    "af_range": [0.8, 1.5],
+    "cbet_pct": [0.35, 0.50],
+    "fold_to_cbet_pct": [0.45, 0.60],
+    "wtsd_range": [0.35, 0.50]
+  }
+}
