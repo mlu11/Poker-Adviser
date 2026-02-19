@@ -43,6 +43,18 @@ python3 -m pytest tests/test_parser.py::test_parse_hand -v
 python3 -m pytest tests/ --cov=poker_advisor
 ```
 
+### Git 工作流（新增）
+```bash
+# 运行测试并通过后自动提交（一键工作流）
+/run-tests-and-commit
+
+# 运行指定测试并通过后自动提交
+/run-tests-and-commit tests/test_parser.py
+
+# 手动运行自动提交脚本
+bash .claude/scripts/auto-commit.sh
+```
+
 ### 数据库
 ```bash
 # 数据库位置
@@ -179,11 +191,13 @@ Streamlit 页面文件名前缀数字决定侧栏排序：
 2. **实施** → 原子 commit（每个功能单元独立实施 + 验证 + commit）
 3. **审查** → 用 code-reviewer + silent-failure-hunter 并行审查
 4. **验证** → Web 改动后运行 `/verify-results` 做端到端验证
+5. **提交** → 运行 `/run-tests-and-commit` 一键测试+提交（可选快速工作流）
 
 ### Skills
 - `/verify-results` — Web 应用端到端浏览器自动化验证
 - `/import-and-verify` — Parser/Storage 修改后导入验证
 - `/run-tests` — 运行 pytest 并诊断失败
+- `/run-tests-and-commit` — 运行测试并通过后自动提交到 Git（新增）
 - `/db-inspect` — 数据库一致性检查
 
 ---
